@@ -8,7 +8,7 @@ pub struct Program {
 impl Program {
     /// # Errors
     /// - Program failed to link
-    pub fn from_shaders(shaders: &[Shader]) -> Result<Self, String> {
+    pub fn from_shaders(shaders: &[&Shader]) -> Result<Self, String> {
         let handle = unsafe { gl::CreateProgram() };
 
         unsafe {
