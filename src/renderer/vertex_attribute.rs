@@ -17,11 +17,11 @@ pub struct VertexAttribute {
 }
 
 impl VertexAttribute {
-    pub fn new(format: Format, offset: u16) -> Self {
+    pub const fn new(format: Format, offset: u16) -> Self {
         Self { format, offset }
     }
 
-    pub fn format(&self) -> Format { self.format }
+    pub const fn format(&self) -> Format { self.format }
 
-    pub fn offset(&self) -> u16 { self.offset }
+    pub const fn offset(&self) -> u16 { self.offset }
 }

@@ -45,11 +45,11 @@ impl Buffer {
         Ok(Self { handle, target, size, usage })
     }
 
-    pub fn handle(&self) -> GLuint { self.handle }
+    pub const fn handle(&self) -> GLuint { self.handle }
 
-    pub fn size(&self) -> usize { self.size }
+    pub const fn size(&self) -> usize { self.size }
 
-    pub fn usage(&self) -> Usage { self.usage }
+    pub const fn usage(&self) -> Usage { self.usage }
 
     pub fn map<Type>(&mut self) -> &mut [Type] {
         unsafe {

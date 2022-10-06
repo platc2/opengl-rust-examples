@@ -2,6 +2,7 @@ use std::ffi::{CStr, CString};
 use gl::types::{GLchar, GLenum, GLint, GLuint};
 
 use crate::renderer::create_whitespace_cstring_with_len;
+use crate::resources::Resources;
 
 #[derive(Copy, Clone)]
 pub enum Kind {
@@ -15,6 +16,24 @@ pub struct Shader {
 }
 
 impl Shader {
+
+    /// # Errors
+    /// - Shader compilation error
+    pub fn from_res(res: &Resources, name: &str) -> Result<Self, String> {
+        const POSSIBLE_EXT: [(&str, Kind); 2] = [
+            (".vert", Kind::Vertex),
+            (".frag", Kind::Fragment),
+        ];
+
+        let shader_kind = POSSIBLE_EXT.iter()
+            .find(|&&(file_extension, _)| name.ends_with(file_extension))
+            .map(|&(_, kind)| kind)
+            .ok_or_else(|| format!("Can not determine shader type for resource {}", name))?;
+        let source = res.load_cstring(name)
+            .map_err(|e| format!("Error loading resource {}: {:?}", name, e))?;
+        Self::from_source(source.to_str().map_err(|e| format!("Error converting cstring to str: {:?}", e))?, shader_kind)
+    }
+
     /// # Errors
     /// - Shader compilation error
     pub fn from_source(source: &str, kind: Kind) -> Result<Self, String> {
@@ -29,9 +48,9 @@ impl Shader {
         Ok(Self { handle, kind })
     }
 
-    pub fn handle(&self) -> GLuint { self.handle }
+    pub const fn handle(&self) -> GLuint { self.handle }
 
-    pub fn kind(&self) -> Kind { self.kind }
+    pub const fn kind(&self) -> Kind { self.kind }
 }
 
 fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint, String> {

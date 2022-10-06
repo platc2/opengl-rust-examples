@@ -1,16 +1,18 @@
 use std::ffi::CString;
 
-pub use self::buffer::Buffer;
+pub use self::buffer::{Buffer, Usage as BufferUsage};
 pub use self::program::Program;
-pub use self::shader::Shader;
-pub use self::render_pass::RenderPass;
-pub use self::vertex_attribute::VertexAttribute;
+pub use self::render_pass::{RenderPass, VertexBinding};
+pub use self::shader::{Shader, Kind as ShaderKind};
+pub use self::vertex_attribute::{Format as VertexAttributeFormat, VertexAttribute};
+pub use self::texture::Texture;
 
-pub mod buffer;
-pub mod shader;
-pub mod program;
-pub mod render_pass;
-pub mod vertex_attribute;
+mod buffer;
+mod shader;
+mod program;
+mod render_pass;
+mod vertex_attribute;
+mod texture;
 
 fn create_whitespace_cstring_with_len(len: usize) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len + 1);
