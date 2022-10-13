@@ -1,4 +1,5 @@
 use std::ffi;
+use std::ffi::c_void;
 
 use gl::types::{GLenum, GLint, GLsizei, GLuint};
 use stb_image::image::LoadResult;
@@ -19,6 +20,8 @@ type Result<T> = std::result::Result<T, ImageLoadingError>;
 
 pub struct Texture {
     handle: GLuint,
+    width: usize,
+    height: usize,
 }
 
 struct Image {
@@ -61,6 +64,32 @@ impl Image {
 }
 
 impl Texture {
+    pub fn from_raw(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
+        let mut handle: GLuint = 0;
+
+        let gl_width = GLsizei::try_from(width).expect("Too wide");
+        let gl_height = GLsizei::try_from(height).expect("Too high");
+
+        // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
+        let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
+        let gl_rgba = unsafe { GLint::try_from(gl::RGBA).unwrap_unchecked() };
+
+        unsafe {
+            gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
+            gl::BindTexture(gl::TEXTURE_2D, handle);
+
+            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
+            gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
+        }
+
+        unsafe {
+            gl::TexImage2D(gl::TEXTURE_2D, 0 as GLint, gl_rgba, gl_width,
+                           gl_height, 0 as GLint, gl::RGBA, gl::UNSIGNED_BYTE,
+                           image_data.as_ptr().cast::<c_void>());
+            gl::GenerateTextureMipmap(handle);
+        }
+        Ok(Self { handle, width, height })
+    }
     /// # Errors
     /// - [`Error::InvalidImage`]
     /// - [`Error::UnsupportedFormat`]
@@ -94,12 +123,41 @@ impl Texture {
                            image_data.height, 0 as GLint, format, image_data.gl_type, image_data.ptr);
             gl::GenerateTextureMipmap(handle);
         }
-        Ok(Self { handle })
+        Ok(Self { handle, width: image_data.width as usize, height: image_data.height as usize })
+    }
+
+    pub fn blank(width: usize, height: usize) -> Self {
+        let mut handle: GLuint = 0;
+
+        let gl_width = GLsizei::try_from(width)
+            .expect("Width too large");
+        let gl_height = GLsizei::try_from(height)
+            .expect("Height too large");
+
+        // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
+        let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
+        let gl_rgba = unsafe { GLint::try_from(gl::RGBA).unwrap_unchecked() };
+
+        unsafe {
+            gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
+            gl::BindTexture(gl::TEXTURE_2D, handle);
+
+            gl::TexImage2D(gl::TEXTURE_2D, 0 as GLint, gl_rgba, gl_width, gl_height,
+                           0 as GLint, gl::RGBA, gl::UNSIGNED_BYTE, std::ptr::null());
+            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
+            gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
+        }
+
+        Self { handle, width, height }
     }
 
     pub const fn handle(&self) -> GLuint {
         self.handle
     }
+
+    pub const fn width(&self) -> usize { self.width }
+
+    pub const fn height(&self) -> usize { self.height }
 }
 
 const fn format_from_depth(depth: usize) -> Result<GLenum> {

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 sdl2 = { version = "0.35.2", features = ['bundled', 'static-link'] }
-imgui-rs = "1.47.0"
+imgui = "0.8.2"
 gl = { path = "./lib/gl"}
 nalgebra-glm = "0.17.0"
 stb_image = "0.2.4"

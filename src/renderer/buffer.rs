@@ -51,7 +51,7 @@ impl Buffer {
 
     pub const fn usage(&self) -> Usage { self.usage }
 
-    pub fn map<Type>(&mut self) -> &mut [Type] {
+    pub fn map<Type>(&mut self) -> &mut [Type] where Type: Sized {
         unsafe {
             gl::BindBuffer(self.target, self.handle);
             let memory_pointer = gl::MapBuffer(self.target, gl::WRITE_ONLY).cast::<Type>();

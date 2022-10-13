@@ -47,6 +47,8 @@ impl Program {
     pub fn set_used(&self) {
         unsafe { gl::UseProgram(self.handle); }
     }
+
+    pub fn handle(&self) -> GLuint { self.handle }
 }
 
 impl Drop for Program {

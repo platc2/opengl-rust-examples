@@ -9,6 +9,7 @@ pub struct RenderPass {
     program: Program,
     uniform_buffers: Vec<(GLuint, GLsizeiptr)>,
     textures: Vec<GLuint>,
+    frame_buffer: GLuint,
 }
 
 pub struct VertexBinding {
@@ -27,7 +28,7 @@ impl RenderPass {
     /// - Invalid shaders
     ///   - Compile errors
     ///   - Link errors
-    pub fn new(vertex_shader: &Shader, fragment_shader: &Shader, vertex_bindings: &[VertexBinding], uniform_buffers: &[&Buffer], textures: &[Texture]) -> Result<Self, String> {
+    pub fn new(vertex_shader: &Shader, fragment_shader: &Shader, vertex_bindings: &[VertexBinding], uniform_buffers: &[&Buffer], textures: &[&Texture], attachments: &[&Texture]) -> Result<Self, String> {
         let mut vertex_array_object: GLuint = 0;
         unsafe { gl::CreateVertexArrays(1, &mut vertex_array_object); }
 
@@ -53,29 +54,62 @@ impl RenderPass {
             .collect();
 
         let textures = textures.iter()
-            .map(Texture::handle)
+            .map(|texture| texture.handle())
             .collect();
 
-        Ok(Self { vertex_array_object, program, uniform_buffers, textures })
+        let mut frame_buffer: GLuint = 0;
+        if !attachments.is_empty() {
+            unsafe {
+                gl::CreateFramebuffers(1, &mut frame_buffer);
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, frame_buffer);
+
+                for (index, attachment) in attachments.iter().enumerate() {
+                    gl::BindTexture(gl::TEXTURE_2D, attachment.handle());
+                    gl::FramebufferTexture2D(gl::DRAW_FRAMEBUFFER, index_to_color_attachment_slot(index),
+                                             gl::TEXTURE_2D, attachment.handle(), 0);
+                }
+
+/*
+                                let mut render_buffer: GLuint = 0;
+                                gl::CreateRenderbuffers(1, &mut render_buffer);
+                                gl::BindRenderbuffer(gl::RENDERBUFFER, render_buffer);
+                                gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 1024, 1024);
+                                gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, render_buffer);
+*/
+            }
+
+            match unsafe { gl::CheckFramebufferStatus(gl::DRAW_FRAMEBUFFER) } {
+                gl::FRAMEBUFFER_COMPLETE => (),
+                e => panic!("{:x} INCOMPLETE!", e),
+            }
+        }
+
+        Ok(Self { vertex_array_object, program, uniform_buffers, textures, frame_buffer })
     }
 
     pub fn display(&self) {
-        self.program.set_used();
+        unsafe { gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.frame_buffer) };
 
-        unsafe {
-            gl::BindVertexArray(self.vertex_array_object);
-            for (index, (handle, size)) in self.uniform_buffers.iter().enumerate() {
+        self.program.set_used();
+        unsafe { gl::BindVertexArray(self.vertex_array_object); }
+
+        for (index, (handle, size)) in self.uniform_buffers.iter().enumerate()
+            .map(|(index, tuple)| (
+                GLuint::try_from(index).expect("Too many uniform buffers"),
+                tuple)) {
+            unsafe {
                 gl::BindBufferRange(gl::UNIFORM_BUFFER,
-                                    GLuint::try_from(index)
-                                        .expect("Too many uniform buffers!"),
+                                    index,
                                     *handle,
                                     0 as GLintptr,
                                     *size);
             }
+        }
 
-            for (texture_slot, texture_handle) in self.textures.iter()
-                .enumerate()
-                .map(|(index, handle)| (index_to_texture_slot(index), handle)) {
+        for (texture_slot, texture_handle) in self.textures.iter()
+            .enumerate()
+            .map(|(index, handle)| (index_to_texture_slot(index), handle)) {
+            unsafe {
                 gl::ActiveTexture(texture_slot);
                 gl::BindTexture(gl::TEXTURE_2D, *texture_handle);
             }
@@ -86,6 +120,11 @@ impl RenderPass {
 fn index_to_texture_slot(index: usize) -> GLenum {
     GLenum::try_from(gl::TEXTURE0 as usize + index)
         .expect("Texture index too large")
+}
+
+fn index_to_color_attachment_slot(index: usize) -> GLenum {
+    GLenum::try_from(gl::COLOR_ATTACHMENT0 as usize + index)
+        .expect("Attachment index too large")
 }
 
 const fn convert_format(format: Format) -> (GLint, GLenum) {
