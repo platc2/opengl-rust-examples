@@ -1,8 +1,27 @@
 use std::ffi::{CStr, CString};
+
 use gl::types::{GLchar, GLenum, GLint, GLuint};
+use thiserror::Error;
 
 use crate::renderer::create_whitespace_cstring_with_len;
+use crate::renderer::shader::Error::UnsupportedFileExtension;
 use crate::resources::Resources;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Shader type could not be guessed from file extension: {0}")]
+    UnsupportedFileExtension(String),
+
+    #[error("Resource error: {0}")]
+    ResourceError(#[from] crate::resources::Error),
+
+    #[error("UTF-8 Error: {0}")]
+    Utf8Error(#[from] core::str::Utf8Error),
+
+    #[error("Shader failed to compile: {0}")]
+    ShaderCompilation(String),
+}
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Copy, Clone)]
 pub enum Kind {
@@ -16,10 +35,9 @@ pub struct Shader {
 }
 
 impl Shader {
-
     /// # Errors
     /// - Shader compilation error
-    pub fn from_res(res: &Resources, name: &str) -> Result<Self, String> {
+    pub fn from_res(res: &Resources, name: &str) -> Result<Self> {
         const POSSIBLE_EXT: [(&str, Kind); 2] = [
             (".vert", Kind::Vertex),
             (".frag", Kind::Fragment),
@@ -28,15 +46,15 @@ impl Shader {
         let shader_kind = POSSIBLE_EXT.iter()
             .find(|&&(file_extension, _)| name.ends_with(file_extension))
             .map(|&(_, kind)| kind)
-            .ok_or_else(|| format!("Can not determine shader type for resource {}", name))?;
-        let source = res.load_cstring(name)
-            .map_err(|e| format!("Error loading resource {}: {:?}", name, e))?;
-        Self::from_source(source.to_str().map_err(|e| format!("Error converting cstring to str: {:?}", e))?, shader_kind)
+            .ok_or_else(|| UnsupportedFileExtension(String::from(name)))?;
+        let source = res.load_cstring(name)?;
+
+        Self::from_source(source.to_str()?, shader_kind)
     }
 
     /// # Errors
     /// - Shader compilation error
-    pub fn from_source(source: &str, kind: Kind) -> Result<Self, String> {
+    pub fn from_source(source: &str, kind: Kind) -> Result<Self> {
         let gl_type = match kind {
             Kind::Vertex => gl::VERTEX_SHADER,
             Kind::Fragment => gl::FRAGMENT_SHADER,
@@ -53,7 +71,7 @@ impl Shader {
     pub const fn kind(&self) -> Kind { self.kind }
 }
 
-fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint, String> {
+fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint> {
     let handle = unsafe { gl::CreateShader(kind) };
 
     unsafe {
@@ -78,7 +96,7 @@ fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint, String> {
             gl::GetShaderInfoLog(handle, len, std::ptr::null_mut(), error.as_ptr() as *mut GLchar);
         }
 
-        return Err(error.to_string_lossy().into_owned());
+        return Err(Error::ShaderCompilation(error.to_string_lossy().into_owned()));
     }
 
     Ok(handle)

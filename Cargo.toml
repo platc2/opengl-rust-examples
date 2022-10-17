@@ -11,6 +11,7 @@ imgui = "0.8.2"
 gl = { path = "./lib/gl"}
 nalgebra-glm = "0.17.0"
 stb_image = "0.2.4"
+thiserror = "1.0.37"
 
 [build-dependencies]
 walkdir = "2.3.2"

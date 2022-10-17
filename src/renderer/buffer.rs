@@ -1,4 +1,13 @@
 use gl::types::{GLenum, GLsizeiptr, GLuint};
+use thiserror::Error;
+use crate::renderer::buffer::Error::TooLarge;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Buffer too large")]
+    TooLarge
+}
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Copy, Clone)]
 pub enum Usage {
@@ -19,9 +28,8 @@ pub struct Buffer {
 
 impl Buffer {
     /// # Errors
-    ///
-    /// TODO - Describe returned error
-    pub fn allocate(usage: Usage, size: usize) -> Result<Self, String> {
+    /// - Allocated buffer size too large
+    pub fn allocate(usage: Usage, size: usize) -> Result<Self> {
         let target = match usage {
             Usage::Vertex => gl::ARRAY_BUFFER,
             Usage::Index => gl::ELEMENT_ARRAY_BUFFER,
@@ -35,7 +43,7 @@ impl Buffer {
 
         let mut handle: GLuint = 0;
         let gl_size = GLsizeiptr::try_from(size)
-            .expect("Failed to allocate buffer: Too large");
+            .map_err(|_| TooLarge)?;
         unsafe {
             gl::CreateBuffers(1, &mut handle);
             gl::BindBuffer(target, handle);
