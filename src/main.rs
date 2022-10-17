@@ -12,36 +12,24 @@ use gl::types::{GLfloat, GLintptr, GLsizei};
 use imgui::TextureId;
 
 use crate::renderer::{Buffer, BufferUsage, Program, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding};
+use crate::renderer_context::RendererContext;
 use crate::resources::Resources;
 
 pub mod renderer;
-pub mod resources;
+mod resources;
+mod renderer_context;
 
 type Mat3 = nalgebra_glm::TMat3<f32>;
+
 struct KernelMatrix {
     pub label: String,
     pub matrix: Mat3,
 }
 
 fn main() -> Result<(), String> {
-    type Mat4 = nalgebra_glm::TMat4<f32>;
-
-    let sdl = sdl2::init().expect("Failed to initialize SDL2 context");
-    let video_subsystem = sdl.video().expect("Failed to initialize video subsystem");
-    let gl_attr = video_subsystem.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-    gl_attr.set_context_version(4, 3);
-    gl_attr.set_context_flags()
-        .debug()
-        .set();
-    let window = video_subsystem
-        .window("Hello Cube", 900, 700)
-        .opengl()
-        .resizable()
-        .build()
-        .expect("Failed to create window");
-    let _gl_context = window.gl_create_context().expect("Failed to create OpenGL context");
-    gl::load_with(|s| video_subsystem.gl_get_proc_address(s).cast::<std::ffi::c_void>());
+    // Initialize render-context
+    let context = RendererContext::init()
+        .map_err(|e| format!("{e}"))?;
 
     unsafe {
         gl::Enable(gl::DEBUG_OUTPUT);
@@ -49,19 +37,29 @@ fn main() -> Result<(), String> {
     }
 
     let res = Resources::from_relative_exe_path(Path::new("assets"))
-        .map_err(|e| format!("{:?}", e))?;
+        .map_err(|e| format!("{e}"))?;
 
-    let vertex_buffer = initialize_vertices()?;
-    let index_buffer = initialize_indices()?;
+    type Mat4 = nalgebra_glm::TMat4<f32>;
+    let vertex_buffer = initialize_vertices()
+        .map_err(|e| format!("{e}"))?;
+    let index_buffer = initialize_indices()
+        .map_err(|e| format!("{e}"))?;
 
     let vertex_shader = Shader::from_source(
-        res.load_cstring("/shaders/basic.vert").unwrap().to_str().unwrap(), ShaderKind::Vertex)?;
+        &res.load_string("/shaders/basic.vert").map_err(|e| format!("{e}"))?,
+        ShaderKind::Vertex)
+        .map_err(|e| format!("{e}"))?;
     let fragment_shader = Shader::from_source(
-        res.load_cstring("/shaders/basic.frag").unwrap().to_str().unwrap(), ShaderKind::Fragment)?;
+        &res.load_string("/shaders/basic.frag").map_err(|e| format!("{e}"))?,
+        ShaderKind::Fragment)
+        .map_err(|e| format!("{e}"))?;
 
-    let mut matrix_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat4>() * 2)?;
-    let mut texture_switch_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<f32>())?;
-    let mut kernel_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat3>())?;
+    let mut matrix_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat4>() * 2)
+        .map_err(|e| format!("{:?}", e))?;
+    let mut texture_switch_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<f32>())
+        .map_err(|e| format!("{:?}", e))?;
+    let mut kernel_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat3>())
+        .map_err(|e| format!("{:?}", e))?;
 
     let vertex_bindings = [
         VertexBinding::new(0, VertexAttribute::new(renderer::VertexAttributeFormat::RGB32F, 0)),
@@ -88,9 +86,13 @@ fn main() -> Result<(), String> {
         VertexBinding::new(1, VertexAttribute::new(renderer::VertexAttributeFormat::RG32F, 0)),
     ];
     let cube_vertex_shader = Shader::from_source(
-        res.load_cstring("/shaders/cube.vert").unwrap().to_str().unwrap(), ShaderKind::Vertex)?;
+        &res.load_string("/shaders/cube.vert").map_err(|e| format!("{e}"))?,
+        ShaderKind::Vertex)
+        .map_err(|e| format!("{e}"))?;
     let cube_fragment_shader = Shader::from_source(
-        res.load_cstring("/shaders/cube.frag").unwrap().to_str().unwrap(), ShaderKind::Fragment)?;
+        &res.load_string("/shaders/cube.frag").map_err(|e| format!("{e}"))?,
+        ShaderKind::Fragment)
+        .map_err(|e| format!("{e}"))?;
     let cube_render_pass = RenderPass::new(&cube_vertex_shader, &cube_fragment_shader, &cube_vertex_bindings,
                                            &[&kernel_buffer], &[&render_texture], &[])?;
 
@@ -110,7 +112,7 @@ fn main() -> Result<(), String> {
     let mut mouse_right = false;
 
     let mut angle = 0f32;
-    let mut event_pump = sdl.event_pump().expect("Failed to get event pump");
+    let mut event_pump = context.sdl().event_pump().expect("Failed to get event pump");
 
     let imgui_context = &mut imgui::Context::create();
 
@@ -125,8 +127,14 @@ fn main() -> Result<(), String> {
         font_texture
     };
 
-    let imgui_vertex = Shader::from_source(res.load_cstring("/shaders/imgui.vert").unwrap().to_str().unwrap(), ShaderKind::Vertex)?;
-    let imgui_fragment = Shader::from_source(res.load_cstring("/shaders/imgui.frag").unwrap().to_str().unwrap(), ShaderKind::Fragment)?;
+    let imgui_vertex = Shader::from_source(
+        &res.load_string("/shaders/imgui.vert").map_err(|e| format!("{e}"))?,
+        ShaderKind::Vertex)
+        .map_err(|e| format!("{e}"))?;
+    let imgui_fragment = Shader::from_source(
+        &res.load_string("/shaders/imgui.frag").map_err(|e| format!("{e}"))?,
+        ShaderKind::Fragment)
+        .map_err(|e| format!("{e}"))?;
     let imgui_program = Program::from_shaders(&[&imgui_vertex, &imgui_fragment])?;
     let mut imgui_vbo: gl::types::GLuint = 0;
     let mut imgui_ebo: gl::types::GLuint = 0;
@@ -172,7 +180,7 @@ fn main() -> Result<(), String> {
             matrix: nalgebra_glm::mat3(
                 0f32, 0f32, 0f32,
                 0f32, 1f32, 0f32,
-                0f32, 0f32, 0f32
+                0f32, 0f32, 0f32,
             ),
         },
         KernelMatrix {
@@ -399,7 +407,7 @@ fn main() -> Result<(), String> {
             gl::Disable(gl::SCISSOR_TEST);
         }
 
-        window.gl_swap_window();
+        context.window().gl_swap_window();
     }
 }
 
@@ -413,7 +421,8 @@ fn initialize_cube_vertices() -> Result<Buffer, String> {
         1f32, 0f32, 1f32, 1f32, 0f32, 1f32,
     ];
 
-    let mut vertex_buffer = Buffer::allocate(BufferUsage::Vertex, std::mem::size_of::<f32>() * vertices.len())?;
+    let mut vertex_buffer = Buffer::allocate(BufferUsage::Vertex, std::mem::size_of::<f32>() * vertices.len())
+        .map_err(|e| format!("{:?}", e))?;
     let ptr = vertex_buffer.map::<f32>();
     ptr.copy_from_slice(&vertices);
     vertex_buffer.unmap();
@@ -466,7 +475,8 @@ fn initialize_vertices() -> Result<Buffer, String> {
         // Bottom face
         0f32, -1f32, 0f32, 0f32, -1f32, 0f32, 0f32, -1f32, 0f32, 0f32, -1f32, 0f32,
     ];
-    let mut vertex_buffer = Buffer::allocate(BufferUsage::Vertex, std::mem::size_of::<f32>() * vertices.len())?;
+    let mut vertex_buffer = Buffer::allocate(BufferUsage::Vertex, std::mem::size_of::<f32>() * vertices.len())
+        .map_err(|e| format!("{:?}", e))?;
     let ptr = vertex_buffer.map::<f32>();
     ptr.copy_from_slice(&vertices);
     vertex_buffer.unmap();
@@ -490,7 +500,8 @@ pub fn initialize_indices() -> Result<Buffer, String> {
         // Bottom face
         20u16, 21u16, 22u16, 20u16, 22u16, 23u16,
     ];
-    let mut index_buffer = Buffer::allocate(BufferUsage::Index, std::mem::size_of::<u16>() * indices.len())?;
+    let mut index_buffer = Buffer::allocate(BufferUsage::Index, std::mem::size_of::<u16>() * indices.len())
+        .map_err(|e| format!("{:?}", e))?;
     let ptr = index_buffer.map::<u16>();
     ptr.copy_from_slice(&indices);
     index_buffer.unmap();
