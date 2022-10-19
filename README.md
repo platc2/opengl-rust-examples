@@ -5,8 +5,8 @@ a library for asset-management and opengl-wrappers as well as multiple binaries.
 
 |||
 |---|---|
-|Hello Triangle|[Hello Triangle] OpenGL example with [gamma correction]|
-|Sobel Cube|Rotating cube to which multiple filter kernels are applied|
+|**Hello Triangle**|[Hello Triangle] OpenGL example with [gamma correction]|
+|**Sobel Cube**|Rotating cube to which multiple filter kernels are applied|
 
 Code has been ported from C++ to Rust from [this repository][VoxelRendering]
 and extended using [this article][OpenGL from scratch].
@@ -24,6 +24,9 @@ stable)*
 
 Once [rustup] has been installed, you can build the project using `cargo build` or
 `cargo build --release` for a release-build respectively.
+
+> :info: You might require to install development libraries for any of the dependencies
+> (SDL2, OpenGL)
 
 You can execute the binaries directly from cargo using `cargo run --bin <binary-name>`.
 If no binary name is supplied, the command fails and the list of possible binaries is
