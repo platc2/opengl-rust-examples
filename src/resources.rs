@@ -18,7 +18,7 @@ pub enum Error {
     TooLong,
 
     #[error("UTF-8 error: {0}")]
-    Utf8Error(#[from] alloc::string::FromUtf8Error),
+    Utf8Error(#[from] std::string::FromUtf8Error),
 }
 type Result<T> = std::result::Result<T, Error>;
 
@@ -76,8 +76,6 @@ impl Resources {
     /// # Errors
     /// - Fail to get exe path
     /// - Fail to get file metadata
-    ///
-    /// # Panics
     /// - File too large
     pub fn load_image(&self, resource_name: &str) -> Result<Vec<u8>> {
         let mut file = fs::File::open(resource_name_to_path(&self.root_path, resource_name))?;

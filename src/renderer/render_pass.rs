@@ -1,8 +1,18 @@
 use gl::types::{GLenum, GLint, GLintptr, GLsizeiptr, GLuint};
+use thiserror::Error;
 
-use crate::Buffer;
-use crate::renderer::{Program, Shader, Texture, VertexAttribute};
+use crate::renderer::{Buffer, Program, Shader, Texture, VertexAttribute};
 use crate::renderer::vertex_attribute::Format;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Too many vertex bindings!")]
+    TooManyVertexBindings,
+
+    #[error("Program failed to link: {0}")]
+    ProgramLinkError(#[from] crate::renderer::program::Error),
+}
+type Result<T> = std::result::Result<T, Error>;
 
 pub struct RenderPass {
     vertex_array_object: GLuint,
@@ -28,13 +38,13 @@ impl RenderPass {
     /// - Invalid shaders
     ///   - Compile errors
     ///   - Link errors
-    pub fn new(vertex_shader: &Shader, fragment_shader: &Shader, vertex_bindings: &[VertexBinding], uniform_buffers: &[&Buffer], textures: &[&Texture], attachments: &[&Texture]) -> Result<Self, String> {
+    pub fn new(vertex_shader: &Shader, fragment_shader: &Shader, vertex_bindings: &[VertexBinding], uniform_buffers: &[&Buffer], textures: &[&Texture], attachments: &[&Texture]) -> Result<Self> {
         let mut vertex_array_object: GLuint = 0;
         unsafe { gl::CreateVertexArrays(1, &mut vertex_array_object); }
 
         for (index, VertexBinding { binding_index, vertex_attribute }) in vertex_bindings.iter().enumerate() {
             let index = GLuint::try_from(index)
-                .expect("Too many vertex bindings!");
+                .map_err(|_| Error::TooManyVertexBindings)?;
             let (format_size, format_type) = convert_format(vertex_attribute.format());
             unsafe {
                 gl::EnableVertexArrayAttrib(vertex_array_object, index);
@@ -50,7 +60,7 @@ impl RenderPass {
         ])?;
 
         let uniform_buffers = uniform_buffers.iter()
-            .map(|buffer| (buffer.handle(), GLsizeiptr::try_from(buffer.size()).expect("Uniform buffer too large!")))
+            .map(|buffer| (buffer.handle(), GLsizeiptr::try_from(buffer.size()).unwrap()))
             .collect();
 
         let textures = textures.iter()

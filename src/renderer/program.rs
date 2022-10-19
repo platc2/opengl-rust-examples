@@ -1,5 +1,13 @@
 use gl::types::{GLint, GLuint};
+use thiserror::Error;
 use crate::renderer::{create_whitespace_cstring_with_len, Shader};
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Program failed to link: {0}")]
+    LinkError(String),
+}
+type Result<T> = std::result::Result<T, Error>;
 
 pub struct Program {
     handle: GLuint,
@@ -8,7 +16,7 @@ pub struct Program {
 impl Program {
     /// # Errors
     /// - Program failed to link
-    pub fn from_shaders(shaders: &[&Shader]) -> Result<Self, String> {
+    pub fn from_shaders(shaders: &[&Shader]) -> Result<Self> {
         let handle = unsafe { gl::CreateProgram() };
 
         unsafe {
@@ -38,7 +46,7 @@ impl Program {
                 gl::GetProgramInfoLog(handle, len, std::ptr::null_mut(), error.as_ptr() as *mut gl::types::GLchar);
             }
 
-            return Err(error.to_string_lossy().into_owned());
+            return Err(Error::LinkError(error.to_string_lossy().into_owned()));
         }
 
         Ok(Self { handle })
