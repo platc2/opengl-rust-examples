@@ -25,7 +25,7 @@ stable)*
 Once [rustup] has been installed, you can build the project using `cargo build` or
 `cargo build --release` for a release-build respectively.
 
-> :info: You might require to install development libraries for any of the dependencies
+> :information_source: You might require to install development libraries for any of the dependencies
 > (SDL2, OpenGL)
 
 You can execute the binaries directly from cargo using `cargo run --bin <binary-name>`.
