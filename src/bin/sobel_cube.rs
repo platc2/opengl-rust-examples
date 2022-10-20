@@ -22,7 +22,10 @@ struct KernelMatrix {
     pub matrix: Mat3,
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() -> Result<(), String> {
+    type Mat4 = nalgebra_glm::TMat4<f32>;
+
     // Initialize render-context
     let context = RendererContext::init("Sobel Cube", WindowDimension::default(), OpenGLVersion::default())
         .map_err(|e| format!("{e}"))?;
@@ -35,11 +38,8 @@ fn main() -> Result<(), String> {
     let res = Resources::from_relative_exe_path(Path::new("../../assets/sobel_cube"))
         .map_err(|e| format!("{e}"))?;
 
-    type Mat4 = nalgebra_glm::TMat4<f32>;
-    let vertex_buffer = initialize_vertices()
-        .map_err(|e| format!("{e}"))?;
-    let index_buffer = initialize_indices()
-        .map_err(|e| format!("{e}"))?;
+    let vertex_buffer = initialize_vertices()?;
+    let index_buffer = initialize_indices()?;
 
     let vertex_shader = Shader::from_source(
         &res.load_string("/shaders/basic.vert").map_err(|e| format!("{e}"))?,
@@ -177,7 +177,10 @@ fn main() -> Result<(), String> {
             use sdl2::mouse::MouseButton;
             use sdl2::keyboard::Keycode;
             match event {
-                Event::MouseMotion { x, y, .. } => mouse_pos = (x, y),
+                Event::MouseMotion { x, y, .. } => mouse_pos = (
+                    // This is ok - Mouse coordinates shouldn't reach numbers which overflow 16bit
+                    i16::try_from(x).unwrap_or(0),
+                    i16::try_from(y).unwrap_or(0)),
                 Event::MouseButtonDown { mouse_btn: MouseButton::Left, .. } => mouse_left = true,
                 Event::MouseButtonUp { mouse_btn: MouseButton::Left, .. } => mouse_left = false,
                 Event::MouseButtonDown { mouse_btn: MouseButton::Right, .. } => mouse_right = true,
@@ -187,7 +190,7 @@ fn main() -> Result<(), String> {
                     break 'main Ok(()),
                 Event::KeyDown { keycode: Some(key_code), .. } => {
                     let key_code = key_code as u32;
-                    if 32 <= key_code && key_code < 512 { chars.push(char::from_u32(key_code).unwrap()); }
+                    if (32..512).contains(&key_code) { chars.push(char::from_u32(key_code).unwrap()); }
                 }
                 _ => {}
             }
@@ -209,16 +212,20 @@ fn main() -> Result<(), String> {
         kernel_buffer.unmap();
 
         if rotate {
-            texture_fraction = texture_fraction + 0.0025 * delta;
+            texture_fraction = 0.0025f32.mul_add(delta, texture_fraction);
             let new = texture_fraction.clamp(0f32, 1f32);
-            if new != texture_fraction {
+            if (texture_fraction - new).abs() > 1e-9 {
                 delta = -delta;
             }
-            texture_fraction = new
+            texture_fraction = new;
         }
 
         unsafe {
-            imgui.prepare(900f32, 700f32, mouse_pos.0 as f32, mouse_pos.1 as f32, mouse_left, mouse_right, &mut chars);
+            imgui.prepare(
+                [900f32, 700f32],
+                [mouse_pos.0.into(), mouse_pos.1.into()],
+                [mouse_left, mouse_right],
+                &mut chars);
 
             main_render_pass.display();
             clear_screen(0.3, 0.3, 0.5);

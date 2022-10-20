@@ -22,8 +22,7 @@ fn main() -> Result<(), String> {
     let res = Resources::from_relative_exe_path(Path::new("../../assets/hello_triangle"))
         .map_err(|e| format!("{e}"))?;
 
-    let vertex_buffer = initialize_vertices()
-        .map_err(|e| format!("{e}"))?;
+    let vertex_buffer = initialize_vertices()?;
 
     let vertex_shader = Shader::from_source(
         &res.load_string("/shaders/triangle.vert").map_err(|e| format!("{e}"))?,
@@ -63,7 +62,10 @@ fn main() -> Result<(), String> {
             use sdl2::mouse::MouseButton;
             use sdl2::keyboard::Keycode;
             match event {
-                Event::MouseMotion { x, y, .. } => mouse_pos = (x, y),
+                Event::MouseMotion { x, y, .. } => mouse_pos = (
+                    // This is ok - Mouse coordinates shouldn't reach numbers which overflow 16bit
+                    i16::try_from(x).unwrap_or(0),
+                    i16::try_from(y).unwrap_or(0)),
                 Event::MouseButtonDown { mouse_btn: MouseButton::Left, .. } => mouse_left = true,
                 Event::MouseButtonUp { mouse_btn: MouseButton::Left, .. } => mouse_left = false,
                 Event::MouseButtonDown { mouse_btn: MouseButton::Right, .. } => mouse_right = true,
@@ -73,13 +75,17 @@ fn main() -> Result<(), String> {
                     break 'main Ok(()),
                 Event::KeyDown { keycode: Some(key_code), .. } => {
                     let key_code = key_code as u32;
-                    if 32 <= key_code && key_code < 512 { chars.push(char::from_u32(key_code).unwrap()); }
+                    if (32..512).contains(&key_code) { chars.push(char::from_u32(key_code).unwrap()); }
                 }
                 _ => {}
             }
         }
 
-        imgui_context.prepare(900f32, 700f32, mouse_pos.0 as f32, mouse_pos.1 as f32, mouse_left, mouse_right, &mut chars);
+        imgui_context.prepare(
+            [900f32, 700f32],
+            [mouse_pos.0.into(), mouse_pos.1.into()],
+            [mouse_left, mouse_right],
+            &mut chars);
 
         unsafe {
             main_render_pass.display();

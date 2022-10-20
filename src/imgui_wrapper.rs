@@ -5,8 +5,8 @@ use imgui::{FontAtlasRefMut, TextureId};
 
 use crate::renderer::{Program, Shader, ShaderKind, Texture};
 
-const IMGUI_VERTEX_SHADER_SOURCE: &'static str = include_str!("imgui.vert");
-const IMGUI_FRAGMENT_SHADER_SOURCE: &'static str = include_str!("imgui.frag");
+const IMGUI_VERTEX_SHADER_SOURCE: &str = include_str!("imgui.vert");
+const IMGUI_FRAGMENT_SHADER_SOURCE: &str = include_str!("imgui.frag");
 
 pub struct Imgui {
     context: imgui::Context,
@@ -52,15 +52,15 @@ impl Imgui {
         Self { context, program, vao, _vbo: vbo, ebo }
     }
 
-    pub fn prepare(&mut self, window_width: f32, window_height: f32, mouse_x: f32, mouse_y: f32,
-                   mouse_left: bool, mouse_right: bool, chars: &mut Vec<char>) {
+    pub fn prepare(&mut self, window_dimension: [f32; 2], mouse_pos: [f32; 2], mouse_button: [bool; 2],
+    chars: &mut Vec<char>) {
         let io = self.context.io_mut();
-        io.display_size = [window_width, window_height];
+        io.display_size = window_dimension;
         io.delta_time = 1f32 / 60f32;
 
-        io.mouse_pos = [mouse_x, mouse_y];
-        io.mouse_down[0] = mouse_left;
-        io.mouse_down[1] = mouse_right;
+        io.mouse_pos = mouse_pos;
+        io.mouse_down[0] = mouse_button[0];
+        io.mouse_down[1] = mouse_button[1];
 
         for char in chars.iter() {
             io.add_input_character(*char);
@@ -68,7 +68,7 @@ impl Imgui {
         chars.truncate(0);
     }
 
-    pub fn render<F>(&mut self, mut callback: F) where F: FnMut(&imgui::Ui) -> ()
+    pub fn render<F>(&mut self, mut callback: F) where F: FnMut(&imgui::Ui)
     {
         let ui = self.context.frame();
         callback(&ui);

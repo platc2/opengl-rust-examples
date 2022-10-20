@@ -13,10 +13,10 @@ pub enum Error {
     UnsupportedFileExtension(String),
 
     #[error("Resource error: {0}")]
-    ResourceError(#[from] crate::resources::Error),
+    Resource(#[from] crate::resources::Error),
 
     #[error("UTF-8 Error: {0}")]
-    Utf8Error(#[from] core::str::Utf8Error),
+    Utf8Encoding(#[from] core::str::Utf8Error),
 
     #[error("Shader failed to compile: {0}")]
     ShaderCompilation(String),
