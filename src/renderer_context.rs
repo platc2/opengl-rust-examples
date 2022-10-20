@@ -61,9 +61,9 @@ impl OpenGLVersion {
 impl RendererContext {
     pub fn init(window_title: &str, window_dimension: WindowDimension, opengl_version: OpenGLVersion) -> Result<Self> {
         let sdl = sdl2::init()
-            .map_err(|str| SdlInit(str))?;
+            .map_err(SdlInit)?;
         let video_subsystem = sdl.video()
-            .map_err(|str| VideoSubsystemInit(str))?;
+            .map_err(VideoSubsystemInit)?;
         let gl_attr = video_subsystem.gl_attr();
         gl_attr.set_context_profile(GLProfile::Core);
         gl_attr.set_context_major_version(opengl_version.major);
@@ -77,7 +77,7 @@ impl RendererContext {
             .resizable()
             .build()?;
         let _gl_context = window.gl_create_context()
-            .map_err(|e| ContextInit(e))?;
+            .map_err(ContextInit)?;
         gl::load_with(|s| video_subsystem.gl_get_proc_address(s).cast::<c_void>());
 
         Ok(Self { sdl, window, _gl_context })

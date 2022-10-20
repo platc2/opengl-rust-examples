@@ -18,7 +18,7 @@ pub enum Error {
     TooLong,
 
     #[error("UTF-8 error: {0}")]
-    Utf8Error(#[from] std::string::FromUtf8Error),
+    Utf8Encoding(#[from] std::string::FromUtf8Error),
 }
 type Result<T> = std::result::Result<T, Error>;
 

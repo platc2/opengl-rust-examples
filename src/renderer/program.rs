@@ -5,7 +5,7 @@ use crate::renderer::{create_whitespace_cstring_with_len, Shader};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Program failed to link: {0}")]
-    LinkError(String),
+    ProgramLink(String),
 }
 type Result<T> = std::result::Result<T, Error>;
 
@@ -46,7 +46,7 @@ impl Program {
                 gl::GetProgramInfoLog(handle, len, std::ptr::null_mut(), error.as_ptr() as *mut gl::types::GLchar);
             }
 
-            return Err(Error::LinkError(error.to_string_lossy().into_owned()));
+            return Err(Error::ProgramLink(error.to_string_lossy().into_owned()));
         }
 
         Ok(Self { handle })

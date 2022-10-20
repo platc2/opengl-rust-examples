@@ -10,7 +10,7 @@ pub enum Error {
     TooManyVertexBindings,
 
     #[error("Program failed to link: {0}")]
-    ProgramLinkError(#[from] crate::renderer::program::Error),
+    ProgramLink(#[from] crate::renderer::program::Error),
 }
 type Result<T> = std::result::Result<T, Error>;
 
