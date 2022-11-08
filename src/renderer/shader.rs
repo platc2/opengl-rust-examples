@@ -21,6 +21,7 @@ pub enum Error {
     #[error("Shader failed to compile: {0}")]
     ShaderCompilation(String),
 }
+
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Copy, Clone)]
