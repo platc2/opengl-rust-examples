@@ -79,13 +79,11 @@ impl RenderPass {
                                              gl::TEXTURE_2D, attachment.handle(), 0);
                 }
 
-/*
                                 let mut render_buffer: GLuint = 0;
                                 gl::CreateRenderbuffers(1, &mut render_buffer);
                                 gl::BindRenderbuffer(gl::RENDERBUFFER, render_buffer);
                                 gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 1024, 1024);
                                 gl::FramebufferRenderbuffer(gl::FRAMEBUFFER, gl::DEPTH_STENCIL_ATTACHMENT, gl::RENDERBUFFER, render_buffer);
-*/
             }
 
             match unsafe { gl::CheckFramebufferStatus(gl::DRAW_FRAMEBUFFER) } {
