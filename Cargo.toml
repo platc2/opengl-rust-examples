@@ -8,10 +8,12 @@ edition = "2021"
 [dependencies]
 sdl2 = { version = "0.35.2", features = ['bundled', 'static-link'] }
 imgui = "0.8.2"
-gl = { path = "./lib/gl"}
+gl = { path = "./lib/gl" }
+imgui_display = { path = "lib/imgui_display" }
 nalgebra-glm = "0.17.0"
 stb_image = "0.2.4"
 thiserror = "1.0.37"
+noise = "0.8.1"
 
 [build-dependencies]
 walkdir = "2.3.2"

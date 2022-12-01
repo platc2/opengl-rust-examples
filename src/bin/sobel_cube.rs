@@ -27,7 +27,7 @@ fn main() -> Result<(), String> {
     type Mat4 = nalgebra_glm::TMat4<f32>;
 
     // Initialize render-context
-    let context = RendererContext::init("Sobel Cube", WindowDimension::default(), OpenGLVersion::default())
+    let context = RendererContext::init("Sobel Cube", &WindowDimension::default(), OpenGLVersion::default())
         .map_err(|e| format!("{e}"))?;
 
     unsafe {

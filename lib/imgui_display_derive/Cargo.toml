@@ -1,0 +1,10 @@
+[package]
+name = "imgui_display_derive"
+version = '0.1.0'
+
+[dependencies]
+quote = "1.0.21"
+syn = { version = "1.0.102", features = ['extra-traits'] }
+
+[lib]
+proc-macro = true
