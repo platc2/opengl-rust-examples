@@ -10,15 +10,12 @@ use crate::renderer::texture::ImageLoadingError::{InvalidImage, TooLarge, Unsupp
 #[derive(Debug, Error)]
 pub enum ImageLoadingError {
     #[error("Image data invalid: {0}")]
-    /// If the image is not valid
     InvalidImage(String),
 
     #[error("Image format unsupported")]
-    /// If the image has an unsupported format
     UnsupportedFormat,
 
     #[error("Image is too large")]
-    /// If the image is too large
     TooLarge,
 }
 
