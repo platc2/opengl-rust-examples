@@ -47,12 +47,12 @@ const vec3 PLANET_CENTRE = vec3(0, 0, 0);
 const float PI = 3.141592;
 
 const vec3 rayleigh_coefficients = vec3(
-    5.8e-6,
+    3.8e-6,
     13.5e-6,
     33.1e-6
 );
 
-const vec3 mie_coefficients = vec3(2e-5);
+const vec3 mie_coefficients = vec3(2e-7);
 
 /**
  * Computes the intersection points of a ray and a sphere. Returns a tuple as hit result where both value
@@ -83,6 +83,7 @@ void main() {
 
         const bool render_skydome = atmosphere_hit && atmosphere_hit_result.exit_distance > 0.0;
         if (render_skydome) {
+            const float epsilon = 1e2;
             // Compute distance to atmosphere - If we are inside of it, the distance equals 0
             const float distance_to_atmosphere = max(0.0, atmosphere_hit_result.enter_distance);
             const float planet_distance = original_color.w;
@@ -90,13 +91,18 @@ void main() {
             (planet_hit && planet_hit_result.enter_distance >= 0.0 ? min(planet_hit_result.enter_distance, atmosphere_hit_result.exit_distance)
             : atmosphere_hit_result.exit_distance) - distance_to_atmosphere;
 
-            const vec3 point_in_atmosphere = camera.direction * distance_to_atmosphere + camera.origin;
-            color.xyz = calculate_light(Ray(point_in_atmosphere, camera.direction), distance_through_atmosphere,
+            const vec3 point_in_atmosphere = (camera.direction * distance_to_atmosphere + epsilon) + camera.origin;
+            color.xyz = calculate_light(Ray(point_in_atmosphere, camera.direction), distance_through_atmosphere - epsilon * 2.0,
                                         sun_direction, original_color.xyz);
         }
     }
 
     color.rgb = 1.0 - exp(-color.rgb);
+/*
+    color.r = color.r < 1.413 ? pow(color.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.r);
+    color.g = color.g < 1.413 ? pow(color.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.g);
+    color.b = color.b < 1.413 ? pow(color.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.b);
+*/
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -139,15 +145,16 @@ bool ray_sphere(const Sphere sphere, const Ray ray, out HitResult hit_result) {
 // Scattering
 //////////////////////////////////////////////////////////////////////////////////////////
 
-float height(const Sphere sphere, const vec3 sample_point) {
+/** Computes the height above the surface of a sphere */
+float surface_height(const Sphere sphere, const vec3 sample_point) {
     const float distance_from_centre = length(sample_point - sphere.centre);
-    const float height_above_surface = max(0, distance_from_centre - sphere.radius);
+    const float height_above_surface = distance_from_centre - sphere.radius;
     return height_above_surface;
 }
 
-float density_at_point(const Sphere sphere, const vec3 sample_point, const float scale_height) {
-    const float height01 = height(sphere, sample_point);
-    return exp(-height01 / scale_height);
+/** Computes the atmospheric density for a point */
+float atmospheric_density(const Sphere sphere, const vec3 sample_point, const float scale_height) {
+    return exp(-surface_height(sphere, sample_point) / scale_height);
 }
 
 vec2 optical_depth(const Sphere sphere, const Ray ray, const float ray_length, const float atmosphere_height) {
@@ -156,8 +163,8 @@ vec2 optical_depth(const Sphere sphere, const Ray ray, const float ray_length, c
 
     for (int i = 0; i < num_optical_depth_points; ++i) {
         const vec3 sample_point = ray.origin + (ray.direction * step_size * i);
-        const float local_rayleigh_density = density_at_point(sphere, sample_point, rayleigh_scale_height);
-        const float local_mie_density = density_at_point(sphere, sample_point, mie_scale_height);
+        const float local_rayleigh_density = atmospheric_density(sphere, sample_point, rayleigh_scale_height);
+        const float local_mie_density = atmospheric_density(sphere, sample_point, mie_scale_height);
         accumulated_density += vec2(local_rayleigh_density, local_mie_density);
     }
 
@@ -183,17 +190,11 @@ float phase(const float cos_theta, const float g) {
  */
 vec3 calculate_light(const Ray ray, const float ray_length, const vec3 sun_direction, const vec3 original_color) {
     const float step_size = ray_length / (num_inscatter_points - 1);
-    vec3 inScatterPoint = ray.origin;
-    vec3 inScatteredLight = vec3(0);
-    vec3 inScatteredLight_mie = vec3(0);
-    float viewRayOpticalDepth = 0;
+    vec2 total_view_ray_optical_depth = vec2(0);
 
     const float mu = dot(ray.direction, sun_direction);
     const float phaseR = phase(mu, 0.0);
     const float phaseM = phase(mu, g);
-
-    float totalOpticalDepth_r = 0.0;
-    float totalOpticalDepth_m = 0.0;
 
     const Sphere planet = Sphere(PLANET_CENTRE, planet_radius);
     vec3 scattered_light = vec3(0.0);
@@ -204,17 +205,16 @@ vec3 calculate_light(const Ray ray, const float ray_length, const vec3 sun_direc
         ray_sphere(Sphere(PLANET_CENTRE, atmosphere_radius + planet_radius), Ray(in_scatter_point, sun_direction), sun_ray_hit_result);
 
         const float sun_ray_length = sun_ray_hit_result.exit_distance;
-        if (sun_ray_length > 0.0) {
-            const vec2 sun_ray_optical_depth = optical_depth(planet, Ray(in_scatter_point, sun_direction), sun_ray_length, atmosphere_radius);
-            // How much sunlight reaches the current point
-            const vec3 sun_light = intensity * exp(-rayleigh_coefficients * sun_ray_optical_depth.x - mie_coefficients * sun_ray_optical_depth.y * 1.1) * 0.1;
-            const vec2 current_optical_depth = optical_depth(planet, ray, step_size * i, atmosphere_radius);
-            // How much light reaches us
-            scattered_light += sun_light * exp(-phaseR * rayleigh_coefficients * current_optical_depth.x - phaseM * mie_coefficients * 1.1 * current_optical_depth.y);
-        }
+        const vec2 sun_ray_optical_depth = optical_depth(planet, Ray(in_scatter_point, sun_direction), sun_ray_length, atmosphere_radius);
+        const vec2 current_optical_depth = optical_depth(planet, ray, step_size * i, atmosphere_radius);
+        total_view_ray_optical_depth += current_optical_depth;
+        const vec3 attenuation = exp(-rayleigh_coefficients * (current_optical_depth.x + sun_ray_optical_depth.x) - mie_coefficients * 1.1 * (current_optical_depth.y + sun_ray_optical_depth.y));
+        scattered_light += phaseR * attenuation * rayleigh_coefficients;
+        scattered_light += phaseM * attenuation * mie_coefficients;
     }
 
-    const vec2 total_view_depth = optical_depth(planet, ray, ray_length, atmosphere_radius);
+//    const vec2 total_view_depth = optical_depth(planet, ray, ray_length, atmosphere_radius);
+    const vec2 total_view_depth = total_view_ray_optical_depth;
     const vec3 original_color_attenuated = original_color * exp(-rayleigh_coefficients * total_view_depth.x - mie_coefficients * 1.1 * total_view_depth.y);
-    return original_color_attenuated + scattered_light;
+    return original_color_attenuated + scattered_light * intensity * step_size;
 }

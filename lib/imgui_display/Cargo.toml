@@ -1,0 +1,6 @@
+[package]
+name = "imgui_display"
+version = '0.1.0'
+
+[dependencies]
+imgui_display_derive = { path = "./../imgui_display_derive" }

@@ -130,7 +130,7 @@ void planet_color(inout vec4 color, const Ray ray, const Sphere sphere, const ve
     HitResult planet_hit;
     if (ray_sphere(sphere, ray, planet_hit) && planet_hit.enter_distance >= 0.0) {
         color.xyz = vec3(0.0, 0.25, 0.05);
-        color.w = planet_hit.enter_distance;
+        color.w = planet_hit.enter_distance / 1e6;
 
         const vec3 planet_position = ray.origin + ray.direction * planet_hit.enter_distance - sphere.centre;
         const vec3 surface_normal = normalize(planet_position);
@@ -138,6 +138,7 @@ void planet_color(inout vec4 color, const Ray ray, const Sphere sphere, const ve
         float noise_value = 0;
         for (int i = 0; i < 8; ++i) {
             // Generate layered noise
+
             noise_value += noise(planet_position * (2 * (i + 1)) / planet_radius) * pow(2.0, -(float(i) + 1.0));
         }
 
@@ -160,8 +161,8 @@ void planet_color(inout vec4 color, const Ray ray, const Sphere sphere, const ve
             color.xyz = vec3(1);
         }
 
-        const float diffuse = max(0.025, dot(surface_normal, sun_direction));
-        color.xyz *= vec3(diffuse);
+        const float diffuse = max(0.0, dot(surface_normal, sun_direction));
+        color.xyz *= vec3(pow(diffuse, 0.25));
     }
 }
 

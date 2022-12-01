@@ -6,15 +6,14 @@ extern crate gl;
 extern crate sdl2;
 
 use core::fmt::{Display, Formatter};
-use std::path::Path;
-
 use gl::types::GLsizei;
-use imgui::SliderFlags;
-
 use hello_triangle_rust::imgui_wrapper;
 use hello_triangle_rust::renderer::{Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeFormat, VertexBinding};
 use hello_triangle_rust::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use hello_triangle_rust::resources::Resources;
+use imgui::SliderFlags;
+use std::path::Path;
+use imgui_display::ImGuiDisplay;
 
 #[derive(Default)]
 struct WGS84Coordinate {
