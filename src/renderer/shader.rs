@@ -27,6 +27,9 @@ type Result<T> = std::result::Result<T, Error>;
 pub enum Kind {
     Vertex,
     Fragment,
+    Geometry,
+    TessellationControl,
+    TessellationEvaluation
 }
 
 pub struct Shader {
@@ -58,6 +61,9 @@ impl Shader {
         let gl_type = match kind {
             Kind::Vertex => gl::VERTEX_SHADER,
             Kind::Fragment => gl::FRAGMENT_SHADER,
+            Kind::Geometry => gl::GEOMETRY_SHADER,
+            Kind::TessellationControl => gl::TESS_CONTROL_SHADER,
+            Kind::TessellationEvaluation => gl::TESS_EVALUATION_SHADER
         };
 
         let source = &CString::new(source)
