@@ -43,7 +43,7 @@ impl Display for WGS84Coordinate {
 fn main() -> Result<(), String> {
     println!("{:.2}", 2.0);
     // Initialize render-context
-    let context = RendererContext::init("Terrain", WindowDimension::default(), OpenGLVersion::default())
+    let context = RendererContext::init("Terrain", &WindowDimension::default(), OpenGLVersion::default())
         .map_err(|e| format!("{e}"))?;
 
     // TODO - Remove if unused

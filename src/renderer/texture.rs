@@ -3,16 +3,19 @@ use std::ffi::c_void;
 
 use gl::types::{GLenum, GLint, GLsizei, GLuint};
 use stb_image::image::LoadResult;
+use thiserror::Error;
 
 use crate::renderer::texture::ImageLoadingError::{InvalidImage, TooLarge, UnsupportedFormat};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ImageLoadingError {
-    /// If the image is not valid
+    #[error("Image data invalid: {0}")]
     InvalidImage(String),
-    /// If the image has an unsupported format
+
+    #[error("Image format unsupported")]
     UnsupportedFormat,
-    /// If the image is too large
+
+    #[error("Image is too large")]
     TooLarge,
 }
 
