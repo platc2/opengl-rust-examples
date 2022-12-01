@@ -16,7 +16,7 @@ use hello_triangle_rust::resources::Resources;
 
 fn main() -> Result<(), String> {
     // Initialize render-context
-    let context = RendererContext::init("Hello Triangle", WindowDimension::default(), OpenGLVersion::default())
+    let context = RendererContext::init("Hello Triangle", &WindowDimension::default(), OpenGLVersion::default())
         .map_err(|e| format!("{e}"))?;
 
     let res = Resources::from_relative_exe_path(Path::new("../../assets/hello_triangle"))

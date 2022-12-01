@@ -59,7 +59,7 @@ impl OpenGLVersion {
 }
 
 impl RendererContext {
-    pub fn init(window_title: &str, window_dimension: WindowDimension, opengl_version: OpenGLVersion) -> Result<Self> {
+    pub fn init(window_title: &str, window_dimension: &WindowDimension, opengl_version: OpenGLVersion) -> Result<Self> {
         let sdl = sdl2::init()
             .map_err(SdlInit)?;
         let video_subsystem = sdl.video()
