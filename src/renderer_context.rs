@@ -51,7 +51,7 @@ pub struct OpenGLVersion {
 }
 
 impl Default for OpenGLVersion {
-    fn default() -> Self { Self::of(4, 3) }
+    fn default() -> Self { Self::of(4, 1) }
 }
 
 impl OpenGLVersion {
