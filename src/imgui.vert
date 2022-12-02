@@ -1,4 +1,5 @@
-#version 430
+#version 410 core
+#extension GL_ARB_explicit_uniform_location : require
 
 layout(location = 0) in vec2 Position;
 layout(location = 1) in vec2 UV;
