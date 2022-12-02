@@ -67,6 +67,8 @@ fn main() -> Result<(), String> {
                                                 &[&tessellation_parameters_buffer], &[], &[])
         .map_err(|e| format!("{e}"))?;
 
+    let max_tessellation = std::cmp::min(gl::MAX_TESS_GEN_LEVEL, 64);
+
     let mut mouse_pos = (0, 0);
     let mut mouse_left = false;
     let mut mouse_right = false;
@@ -109,6 +111,8 @@ fn main() -> Result<(), String> {
             &mut chars);
 
         unsafe {
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+
             main_render_pass.display();
 
             let tessellation_parameters_ptr = tessellation_parameters_buffer.map::<TessellationParameters>();
@@ -123,7 +127,6 @@ fn main() -> Result<(), String> {
                                  GLintptr::try_from(std::mem::size_of::<f32>() * 2).unwrap(),
                                  GLsizei::try_from(std::mem::size_of::<f32>() * 5).unwrap());
             gl::PatchParameteri(gl::PATCH_VERTICES, 3);
-            gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
             gl::DrawArrays(gl::PATCHES, 0, 3);
         }
 
@@ -135,19 +138,34 @@ fn main() -> Result<(), String> {
                 .build(ui, || {
                     ui.text("Tessellation parameters");
                     ui.separator();
-                    imgui::Slider::new("Outer 0", 0, 16)
+                    imgui::Slider::new("Outer 0", 1, max_tessellation)
                         .build(ui, &mut tessellation_parameters.outer[0 * 4]);
-                    imgui::Slider::new("Outer 1", 0, 16)
+                    imgui::Slider::new("Outer 1", 1, max_tessellation)
                         .build(ui, &mut tessellation_parameters.outer[1 * 4]);
-                    imgui::Slider::new("Outer 2", 0, 16)
+                    imgui::Slider::new("Outer 2", 1, max_tessellation)
                         .build(ui, &mut tessellation_parameters.outer[2 * 4]);
-                    imgui::Slider::new("Outer 3", 0, 16)
+                    imgui::Slider::new("Outer 3", 1, max_tessellation)
                         .build(ui, &mut tessellation_parameters.outer[3 * 4]);
                     ui.separator();
-                    imgui::Slider::new("Inner 0", 0, 16)
+                    imgui::Slider::new("Inner 0", 1, max_tessellation)
                         .build(ui, &mut tessellation_parameters.inner[0 * 4]);
-                    imgui::Slider::new("Inner 1", 0, 16)
+                    imgui::Slider::new("Inner 1", 1, max_tessellation)
                         .build(ui, &mut tessellation_parameters.inner[1 * 4]);
+                    ui.separator();
+                    ui.separator();
+                    let mut tessellation_value = 0;
+                    tessellation_value += tessellation_parameters.outer[0 * 4];
+                    tessellation_value += tessellation_parameters.outer[1 * 4];
+                    tessellation_value += tessellation_parameters.outer[2 * 4];
+                    tessellation_value += tessellation_parameters.outer[3 * 4];
+                    tessellation_value += tessellation_parameters.inner[0 * 4];
+                    tessellation_value += tessellation_parameters.inner[1 * 4];
+                    tessellation_value /= 6;
+                    if imgui::Slider::new("All", 1, max_tessellation)
+                        .build(ui, &mut tessellation_value) {
+                        for i in 0..4 { tessellation_parameters.outer[i * 4] = tessellation_value; }
+                        for i in 0..2 { tessellation_parameters.inner[i * 4] = tessellation_value; }
+                    }
                 });
         });
 
