@@ -12,14 +12,15 @@ use std::path::Path;
 use anyhow::{anyhow, Context, Result};
 use gl::types::{GLfloat, GLintptr, GLsizei};
 
-use hello_triangle_rust::{imgui_wrapper, renderer};
 use hello_triangle_rust::renderer::{
     Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding,
 };
 use hello_triangle_rust::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use hello_triangle_rust::resources::Resources;
+use hello_triangle_rust::{imgui_wrapper, renderer};
 
 type Mat3 = nalgebra_glm::TMat3<f32>;
+type Vec3 = nalgebra_glm::TVec3<f32>;
 
 struct KernelMatrix {
     pub label: String,
@@ -60,6 +61,7 @@ fn main() -> Result<()> {
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat4>() * 2)?;
     let mut texture_switch_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<f32>())?;
+    let mut light_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Vec3>())?;
     let mut kernel_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat3>())?;
 
     let vertex_bindings = [
@@ -86,7 +88,7 @@ fn main() -> Result<()> {
         &vertex_shader,
         &fragment_shader,
         &vertex_bindings,
-        &[&matrix_buffer, &texture_switch_buffer],
+        &[&matrix_buffer, &texture_switch_buffer, &light_buffer],
         &[&cube_texture, &floor_texture],
         &[&render_texture],
     )?;
@@ -151,6 +153,7 @@ fn main() -> Result<()> {
 
     let mut delta = 1f32;
     let mut texture_fraction = 0f32;
+    let mut light_color = Vec3::new(1f32, 1f32, 0f32);
     let mut rotate = false;
     let mut chars: Vec<char> = Vec::new();
     let matrices = [
@@ -261,6 +264,10 @@ fn main() -> Result<()> {
         kernel_ptr.copy_from_slice(&[matrices[matrix_index].matrix]);
         kernel_buffer.unmap();
 
+        let light_ptr = light_buffer.map::<Vec3>();
+        light_ptr.copy_from_slice(&[light_color]);
+        light_buffer.unmap();
+
         if rotate {
             texture_fraction = 0.0025f32.mul_add(delta, texture_fraction);
             let new = texture_fraction.clamp(0f32, 1f32);
@@ -342,6 +349,7 @@ fn main() -> Result<()> {
                         ui.combo("Kernel", &mut matrix_index, &matrices, |kernel_matrix| {
                             Cow::from(&kernel_matrix.label)
                         });
+                        ui.input_float3("Light", light_color.as_mut()).build();
                     });
             });
         }
