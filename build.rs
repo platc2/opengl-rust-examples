@@ -1,5 +1,5 @@
-extern crate walkdir;
 extern crate core;
+extern crate walkdir;
 
 use std::env;
 use std::fs::{self, DirBuilder};
@@ -50,8 +50,7 @@ fn copy(from: &Path, to: &Path) {
                     .create(target_path)
                     .expect("Failed to create target dir");
             } else {
-                fs::copy(entry.path(), &target_path)
-                    .expect("Failed to copy");
+                fs::copy(entry.path(), &target_path).expect("Failed to copy");
             }
         }
     }

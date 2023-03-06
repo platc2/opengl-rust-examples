@@ -1,4 +1,5 @@
-#version 430
+#version 410 core
+#extension GL_ARB_shading_language_420pack : require
 
 layout (location = 0) in SHADER_VARYING {
     vec3 fragment_color;
