@@ -1,4 +1,3 @@
-use std::ffi;
 use std::ffi::c_void;
 
 use gl::types::{GLenum, GLint, GLsizei, GLuint};
@@ -29,7 +28,7 @@ pub struct Texture {
 
 struct Image {
     gl_type: GLenum,
-    ptr: *const ffi::c_void,
+    ptr: *const c_void,
     width: GLsizei,
     height: GLsizei,
     depth: usize,
@@ -39,21 +38,22 @@ impl Image {
     /// # Errors
     /// - [`Error::TooLarge`]
     pub fn from_byte(image: &stb_image::image::Image<u8>) -> Result<Self> {
-        Ok(Self {
-            gl_type: gl::UNSIGNED_BYTE,
-            ptr: image.data.as_ptr().cast::<ffi::c_void>(),
-            width: Self::convert_dimension(image.width)?,
-            height: Self::convert_dimension(image.height)?,
-            depth: image.depth,
-        })
+        Self::from_type(gl::UNSIGNED_BYTE, image)
     }
 
     /// # Errors
     /// - [`Error::TooLarge`]
     pub fn from_float(image: &stb_image::image::Image<f32>) -> Result<Self> {
+        Self::from_type(gl::FLOAT, image)
+    }
+
+    fn from_type<ImageType>(
+        gl_type: GLenum,
+        image: &stb_image::image::Image<ImageType>,
+    ) -> Result<Self> {
         Ok(Self {
-            gl_type: gl::FLOAT,
-            ptr: image.data.as_ptr().cast::<ffi::c_void>(),
+            gl_type,
+            ptr: image.data.as_ptr().cast::<c_void>(),
             width: Self::convert_dimension(image.width)?,
             height: Self::convert_dimension(image.height)?,
             depth: image.depth,
@@ -61,12 +61,12 @@ impl Image {
     }
 
     fn convert_dimension(dimension: usize) -> Result<GLsizei> {
-        GLsizei::try_from(dimension)
-            .map_err(|_| TooLarge)
+        GLsizei::try_from(dimension).map_err(|_| TooLarge)
     }
 }
 
 impl Texture {
+    /// # Errors
     pub fn from_raw(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
         let mut handle: GLuint = 0;
 
@@ -86,12 +86,24 @@ impl Texture {
         }
 
         unsafe {
-            gl::TexImage2D(gl::TEXTURE_2D, 0 as GLint, gl_rgba, gl_width,
-                           gl_height, 0 as GLint, gl::RGBA, gl::UNSIGNED_BYTE,
-                           image_data.as_ptr().cast::<c_void>());
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0 as GLint,
+                gl_rgba,
+                gl_width,
+                gl_height,
+                0 as GLint,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                image_data.as_ptr().cast::<c_void>(),
+            );
             gl::GenerateTextureMipmap(handle);
         }
-        Ok(Self { handle, width, height })
+        Ok(Self {
+            handle,
+            width,
+            height,
+        })
     }
     /// # Errors
     /// - [`Error::InvalidImage`]
@@ -122,20 +134,34 @@ impl Texture {
         let format = format_from_depth(image_data.depth)?;
 
         unsafe {
-            gl::TexImage2D(gl::TEXTURE_2D, 0 as GLint, gl_rgba, image_data.width,
-                           image_data.height, 0 as GLint, format, image_data.gl_type, image_data.ptr);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0 as GLint,
+                gl_rgba,
+                image_data.width,
+                image_data.height,
+                0 as GLint,
+                format,
+                image_data.gl_type,
+                image_data.ptr,
+            );
             gl::GenerateTextureMipmap(handle);
         }
-        Ok(Self { handle, width: image_data.width as usize, height: image_data.height as usize })
+        // We don't require to check width & height as they've been validated above
+        #[allow(clippy::cast_sign_loss)]
+        Ok(Self {
+            handle,
+            width: image_data.width as usize,
+            height: image_data.height as usize,
+        })
     }
 
+    #[must_use]
     pub fn blank(width: usize, height: usize) -> Self {
         let mut handle: GLuint = 0;
 
-        let gl_width = GLsizei::try_from(width)
-            .expect("Width too large");
-        let gl_height = GLsizei::try_from(height)
-            .expect("Height too large");
+        let gl_width = GLsizei::try_from(width).expect("Width too large");
+        let gl_height = GLsizei::try_from(height).expect("Height too large");
 
         // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
         let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
@@ -145,22 +171,42 @@ impl Texture {
             gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
             gl::BindTexture(gl::TEXTURE_2D, handle);
 
-            gl::TexImage2D(gl::TEXTURE_2D, 0 as GLint, gl_rgba, gl_width, gl_height,
-                           0 as GLint, gl::RGBA, gl::UNSIGNED_BYTE, std::ptr::null());
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0 as GLint,
+                gl_rgba,
+                gl_width,
+                gl_height,
+                0 as GLint,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                std::ptr::null(),
+            );
             gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
             gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
         }
 
-        Self { handle, width, height }
+        Self {
+            handle,
+            width,
+            height,
+        }
     }
 
+    #[must_use]
     pub const fn handle(&self) -> GLuint {
         self.handle
     }
 
-    pub const fn width(&self) -> usize { self.width }
+    #[must_use]
+    pub const fn width(&self) -> usize {
+        self.width
+    }
 
-    pub const fn height(&self) -> usize { self.height }
+    #[must_use]
+    pub const fn height(&self) -> usize {
+        self.height
+    }
 }
 
 const fn format_from_depth(depth: usize) -> Result<GLenum> {

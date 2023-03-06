@@ -1,11 +1,12 @@
 use gl::types::{GLenum, GLsizeiptr, GLuint};
 use thiserror::Error;
+
 use crate::renderer::buffer::Error::TooLarge;
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Buffer too large")]
-    TooLarge
+    TooLarge,
 }
 type Result<T> = std::result::Result<T, Error>;
 
@@ -42,24 +43,45 @@ impl Buffer {
         };
 
         let mut handle: GLuint = 0;
-        let gl_size = GLsizeiptr::try_from(size)
-            .map_err(|_| TooLarge)?;
+        let gl_size = GLsizeiptr::try_from(size).map_err(|_| TooLarge)?;
         unsafe {
             gl::CreateBuffers(1, &mut handle);
             gl::BindBuffer(target, handle);
-            gl::BufferStorage(target, gl_size, std::ptr::null(), gl::MAP_WRITE_BIT | bit_flags);
+            gl::BufferStorage(
+                target,
+                gl_size,
+                std::ptr::null(),
+                gl::MAP_WRITE_BIT | bit_flags,
+            );
         }
 
-        Ok(Self { handle, target, size, usage })
+        Ok(Self {
+            handle,
+            target,
+            size,
+            usage,
+        })
     }
 
-    pub const fn handle(&self) -> GLuint { self.handle }
+    #[must_use]
+    pub const fn handle(&self) -> GLuint {
+        self.handle
+    }
 
-    pub const fn size(&self) -> usize { self.size }
+    #[must_use]
+    pub const fn size(&self) -> usize {
+        self.size
+    }
 
-    pub const fn usage(&self) -> Usage { self.usage }
+    #[must_use]
+    pub const fn usage(&self) -> Usage {
+        self.usage
+    }
 
-    pub fn map<Type>(&mut self) -> &mut [Type] where Type: Sized {
+    pub fn map<Type>(&mut self) -> &mut [Type]
+    where
+        Type: Sized,
+    {
         unsafe {
             gl::BindBuffer(self.target, self.handle);
             let memory_pointer = gl::MapBuffer(self.target, gl::WRITE_ONLY).cast::<Type>();
@@ -68,12 +90,16 @@ impl Buffer {
     }
 
     pub fn unmap(&self) {
-        unsafe { gl::UnmapBuffer(self.target); }
+        unsafe {
+            gl::UnmapBuffer(self.target);
+        }
     }
 }
 
 impl Drop for Buffer {
     fn drop(&mut self) {
-        unsafe { gl::DeleteBuffers(1, &self.handle); }
+        unsafe {
+            gl::DeleteBuffers(1, &self.handle);
+        }
     }
 }
