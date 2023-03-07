@@ -94,15 +94,19 @@ fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint> {
         }
 
         // GL_INFO_LOG_LENGTH contains a positive number or 0 if no information is available
-        let mut error_string = String::with_capacity(usize::try_from(len).unwrap_or(0));
+        let error_string_length = usize::try_from(len).unwrap_or(0);
+        let mut error_string = String::with_capacity(error_string_length);
+        error_string.extend([' '].iter().cycle().take(error_string_length));
+
         unsafe {
             gl::GetShaderInfoLog(
                 handle,
                 len,
                 std::ptr::null_mut(),
-                error_string.as_mut_ptr().cast::<GLchar>(),
-            );
+                error_string.as_mut_ptr().cast());
         }
+
+        println!("{}", error_string);
 
         return Err(Error::ShaderCompilation(error_string));
     }
