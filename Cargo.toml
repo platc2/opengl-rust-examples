@@ -36,3 +36,6 @@ name = "bruteforce_terrain"
 
 [[bin]]
 name = "atmospheric_scattering"
+
+[[bin]]
+name = "tessellation"
