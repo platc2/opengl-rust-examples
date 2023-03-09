@@ -1,5 +1,8 @@
 [package]
 name = "hello-triangle-rust"
+description = "A collection of OpenGL programs written in the Rust programming language"
+repository = "https://github.com/platc2/opengl-rust"
+keywords = ["OpenGL", "Rust"]
 version = "0.1.0"
 edition = "2021"
 
@@ -7,13 +10,29 @@ edition = "2021"
 
 [dependencies]
 sdl2 = { version = "0.35.2", features = ['bundled', 'static-link'] }
-imgui = "0.8.2"
-gl = { path = "./lib/gl" }
+imgui = "0.10.0"
+gl = { path = "./lib/gl"}
 imgui_display = { path = "lib/imgui_display" }
-nalgebra-glm = "0.17.0"
+nalgebra-glm = "0.18.0"
 stb_image = "0.2.4"
 thiserror = "1.0.37"
 noise = "0.8.1"
+anyhow = "1.0.65"
 
 [build-dependencies]
 walkdir = "2.3.2"
+
+[[bin]]
+name = "hello_triangle"
+
+[[bin]]
+name = "sobel_cube"
+
+[[bin]]
+name = "terrain"
+
+[[bin]]
+name = "bruteforce_terrain"
+
+[[bin]]
+name = "atmospheric_scattering"

@@ -1,5 +1,5 @@
-#version 430 core
-#extension GL_ARB_enhanced_layouts: enable
+#version 410 core
+#extension GL_ARB_shading_language_420pack : require
 
 
 layout (location = 0) in SHADER_VARYING {
