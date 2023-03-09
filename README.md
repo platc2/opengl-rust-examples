@@ -7,6 +7,7 @@ a library for asset-management and opengl-wrappers as well as multiple binaries.
 |---|---|
 |**Hello Triangle**|[Hello Triangle] OpenGL example with [gamma correction]|
 |**Sobel Cube**|Rotating cube to which multiple filter kernels are applied|
+|**Atmospheric Scattering** |Implementation of planetary terrain with atmosphere|
 
 Code has been ported from C++ to Rust from [this repository][VoxelRendering]
 and extended using [this article][OpenGL from scratch].
@@ -39,7 +40,11 @@ printed to console.
 ![Sobel Cube example](./sobel_cube.png)
 
 [gamma correction]: https://learnopengl.com/Advanced-Lighting/Gamma-Correction
+
 [Hello Triangle]: https://learnopengl.com/Getting-started/Hello-Triangle
+
 [VoxelRendering]: https://github.com/platc2/VoxelRendeirng
+
 [OpenGL from scratch]: http://nercury.github.io/rust/opengl/tutorial/2018/02/08/opengl-in-rust-from-scratch-00-setup.html
+
 [Rustup]: https://rustup.rs/
