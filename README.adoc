@@ -24,6 +24,9 @@ Example project for small OpenGL programs written in Rust. The project consists 
 
 |Atmospheric Scattering
 |Implementation of planetary terrain with atmosphere
+
+|Tessellation
+|Example for triangle tessellation
 |===
 
 Code has been ported from C++ to Rust from {voxel-rendering-repo}[this repository^] and extended using {opengl-from-scratch}[this article^].
@@ -59,3 +62,6 @@ image::images/atmospheric_scattering_sunrise.png[width=25%]
 
 .Atmospheric Scattering - Space view
 image::images/atmospheric_scattering_space.png[width=25%]
+
+.Triangle Tessellation
+image::images/tessellation.png[width=25%]
