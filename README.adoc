@@ -18,6 +18,9 @@ Example project for small OpenGL programs written in Rust. The project consists 
 
 |Sobel Cube
 |Rotating cube to which multiple filter kernels are applied
+
+|Bruteforce Terrain
+|Bruteforce algorithm to render noise terrain
 |===
 
 Code has been ported from C++ to Rust from {voxel-rendering-repo}[this repository^] and extended using {opengl-from-scratch}[this article^].
@@ -40,7 +43,10 @@ If no binary name is supplied, the command fails and the list of possible binari
 == Images
 
 .Hello Triangle
-image::hello_triangle.png[width=25%]
+image::images/hello_triangle.png[width=25%]
 
 .Sobel Cube
-image::sobel_cube.png[width=25%]
+image::images/sobel_cube.png[width=25%]
+
+.Bruteforce Terrain
+image::images/bruteforce_terrain.png[width=25%]

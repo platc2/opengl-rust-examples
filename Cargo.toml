@@ -29,3 +29,6 @@ name = "sobel_cube"
 
 [[bin]]
 name = "terrain"
+
+[[bin]]
+name = "bruteforce_terrain"
