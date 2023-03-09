@@ -1,4 +1,5 @@
-#version 420 core
+#version 410 core
+#extension GL_ARB_shading_language_420pack : require
 
 layout (location = 0) in vec3 vertex;
 
@@ -21,7 +22,7 @@ void main() {
     const vec2 uv = vec2((vertex.x + 1.0) / 2.0, (vertex.z + 1.0) / 2.0);
     const float height = texture(heightmap, uv).r;
     pass.uv = uv;
-    const vec3 heightmap_vertex = vec3(vertex.x, vertex.y + height * 0.2, vertex.z);
+    const vec3 heightmap_vertex = vec3(vertex.x, vertex.y + height * 0.25, vertex.z);
 
     // compute normal vector
     const float offset = 1.0 / 256.0;
