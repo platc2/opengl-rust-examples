@@ -1,4 +1,3 @@
-
 #[derive(Copy, Clone)]
 pub enum Format {
     R32F,
@@ -17,11 +16,18 @@ pub struct VertexAttribute {
 }
 
 impl VertexAttribute {
+    #[must_use]
     pub const fn new(format: Format, offset: u16) -> Self {
         Self { format, offset }
     }
 
-    pub const fn format(&self) -> Format { self.format }
+    #[must_use]
+    pub const fn format(&self) -> Format {
+        self.format
+    }
 
-    pub const fn offset(&self) -> u16 { self.offset }
+    #[must_use]
+    pub const fn offset(&self) -> u16 {
+        self.offset
+    }
 }

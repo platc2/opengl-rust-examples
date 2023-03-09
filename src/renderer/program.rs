@@ -1,6 +1,6 @@
-use gl::types::{GLint, GLuint};
+use crate::renderer::Shader;
+use gl::types::{GLchar, GLint, GLuint};
 use thiserror::Error;
-use crate::renderer::{create_whitespace_cstring_with_len, Shader};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -40,27 +40,41 @@ impl Program {
                 gl::GetProgramiv(handle, gl::INFO_LOG_LENGTH, &mut len);
             }
 
-            let error = create_whitespace_cstring_with_len(usize::try_from(len)
-                .expect("Error string too long for display!"));
+            // GL_INFO_LOG_LENGTH contains a positive number or 0 if no information is available
+            let error_string_length = usize::try_from(len).unwrap_or(0);
+            let mut error_string = String::with_capacity(error_string_length);
+            error_string.extend([' '].iter().cycle().take(error_string_length));
             unsafe {
-                gl::GetProgramInfoLog(handle, len, std::ptr::null_mut(), error.as_ptr() as *mut gl::types::GLchar);
+                gl::GetProgramInfoLog(
+                    handle,
+                    len,
+                    std::ptr::null_mut(),
+                    error_string.as_mut_ptr().cast::<GLchar>(),
+                );
             }
 
-            return Err(Error::ProgramLink(error.to_string_lossy().into_owned()));
+            return Err(Error::ProgramLink(error_string));
         }
 
         Ok(Self { handle })
     }
 
     pub fn set_used(&self) {
-        unsafe { gl::UseProgram(self.handle); }
+        unsafe {
+            gl::UseProgram(self.handle);
+        }
     }
 
-    pub fn handle(&self) -> GLuint { self.handle }
+    #[must_use]
+    pub const fn handle(&self) -> GLuint {
+        self.handle
+    }
 }
 
 impl Drop for Program {
     fn drop(&mut self) {
-        unsafe { gl::DeleteProgram(self.handle); }
+        unsafe {
+            gl::DeleteProgram(self.handle);
+        }
     }
 }

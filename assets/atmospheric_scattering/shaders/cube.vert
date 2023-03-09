@@ -1,5 +1,4 @@
-#version 430 core
-#extension GL_ARB_enhanced_layouts : enable
+#version 410 core
 
 
 layout (location = 0) in vec2 position;

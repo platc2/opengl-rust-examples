@@ -3,7 +3,6 @@ use std::ffi::{CStr, CString};
 use gl::types::{GLchar, GLenum, GLint, GLuint};
 use thiserror::Error;
 
-use crate::renderer::create_whitespace_cstring_with_len;
 use crate::renderer::shader::Error::UnsupportedFileExtension;
 use crate::resources::Resources;
 
@@ -39,12 +38,11 @@ impl Shader {
     /// # Errors
     /// - Shader compilation error
     pub fn from_res(res: &Resources, name: &str) -> Result<Self> {
-        const POSSIBLE_EXT: [(&str, Kind); 2] = [
-            (".vert", Kind::Vertex),
-            (".frag", Kind::Fragment),
-        ];
+        const POSSIBLE_EXT: [(&str, Kind); 2] =
+            [(".vert", Kind::Vertex), (".frag", Kind::Fragment)];
 
-        let shader_kind = POSSIBLE_EXT.iter()
+        let shader_kind = POSSIBLE_EXT
+            .iter()
             .find(|&&(file_extension, _)| name.ends_with(file_extension))
             .map(|&(_, kind)| kind)
             .ok_or_else(|| UnsupportedFileExtension(String::from(name)))?;
@@ -61,15 +59,20 @@ impl Shader {
             Kind::Fragment => gl::FRAGMENT_SHADER,
         };
 
-        let source = &CString::new(source)
-            .expect("Shader source contains invalid characters");
+        let source = &CString::new(source).expect("Shader source contains invalid characters");
         let handle = shader_from_source(source, gl_type)?;
         Ok(Self { handle, kind })
     }
 
-    pub const fn handle(&self) -> GLuint { self.handle }
+    #[must_use]
+    pub const fn handle(&self) -> GLuint {
+        self.handle
+    }
 
-    pub const fn kind(&self) -> Kind { self.kind }
+    #[must_use]
+    pub const fn kind(&self) -> Kind {
+        self.kind
+    }
 }
 
 fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint> {
@@ -91,13 +94,22 @@ fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint> {
             gl::GetShaderiv(handle, gl::INFO_LOG_LENGTH, &mut len);
         }
 
-        let error = create_whitespace_cstring_with_len(usize::try_from(len)
-            .expect("Error string too long for display!"));
+        // GL_INFO_LOG_LENGTH contains a positive number or 0 if no information is available
+        let error_string_length = usize::try_from(len).unwrap_or(0);
+        let mut error_string = String::with_capacity(error_string_length);
+        error_string.extend([' '].iter().cycle().take(error_string_length));
+
         unsafe {
-            gl::GetShaderInfoLog(handle, len, std::ptr::null_mut(), error.as_ptr() as *mut GLchar);
+            gl::GetShaderInfoLog(
+                handle,
+                len,
+                std::ptr::null_mut(),
+                error_string.as_mut_ptr().cast());
         }
 
-        return Err(Error::ShaderCompilation(error.to_string_lossy().into_owned()));
+        println!("{}", error_string);
+
+        return Err(Error::ShaderCompilation(error_string));
     }
 
     Ok(handle)
@@ -105,6 +117,8 @@ fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint> {
 
 impl Drop for Shader {
     fn drop(&mut self) {
-        unsafe { gl::DeleteShader(self.handle); }
+        unsafe {
+            gl::DeleteShader(self.handle);
+        }
     }
 }

@@ -1,5 +1,5 @@
-#version 430 core
-#extension GL_ARB_enhanced_layouts: enable
+#version 410 core
+#extension GL_ARB_shading_language_420pack : require
 
 
 layout (location = 0) in SHADER_VARYING {
@@ -22,7 +22,7 @@ layout (std140, binding = 1) uniform WorldSettings {
     float mie_scale_height;
 };
 
-layout (location = 0) uniform sampler2D tex;
+layout (binding = 0) uniform sampler2D tex;
 
 layout (location = 0) out vec4 color;
 
