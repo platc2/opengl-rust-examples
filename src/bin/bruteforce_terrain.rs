@@ -207,19 +207,26 @@ fn main() -> Result<()> {
 fn initialize_terrain(width: usize, height: usize) -> Result<Texture> {
     let mut image_data = Vec::<u8>::with_capacity(width * height * 4);
 
-    let mountain_terrain = RidgedMulti::<Perlin>::default().set_frequency(2.5);
+    let base_mountain_terrain = RidgedMulti::<Perlin>::default()
+        .set_frequency(2.5)
+        .set_attenuation(1.2)
+        .set_persistence(0.5)
+        .set_lacunarity(1.8);
+    let mountain_terrain = ScaleBias::new(base_mountain_terrain)
+        .set_scale(1.0)
+        .set_bias(0.5);
     let base_flat_terrain = Billow::<Perlin>::default().set_frequency(2.0);
     let flat_terrain = ScaleBias::new(base_flat_terrain)
         .set_scale(0.125)
-        .set_bias(-0.75);
-    let noise = Select::new(mountain_terrain, flat_terrain, Perlin::default()).set_falloff(0.5);
+        .set_bias(0.25);
+    let noise = Select::new(mountain_terrain, flat_terrain, Perlin::default()).set_falloff(0.8);
 
     for y in 0..height {
         for x in 0..width {
             let x = x as f64 / width as f64;
             let y = y as f64 / height as f64;
             let height = (1.0 + noise.get([x, y])) / 2.0;
-            image_data.push((height * 512.0) as u8);
+            image_data.push((height * 256.0) as u8);
             image_data.push(0);
             image_data.push(0);
             image_data.push(0);
