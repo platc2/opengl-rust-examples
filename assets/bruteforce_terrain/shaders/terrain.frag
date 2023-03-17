@@ -22,8 +22,8 @@ ColorGradient(0.375, vec3(0, 0.0, 1.0)),
 ColorGradient(0.5, vec3(0.0, 0.5, 1.0)),
 ColorGradient(0.53125, vec3(0.9375, 0.9375, 0.25)),
 ColorGradient(0.5625, vec3(0.125, 0.625, 0.0)),
-ColorGradient(0.6875, vec3(0.875, 0.875, 0.0)),
-ColorGradient(0.875, vec3(0.5, 0.5, 0.5)),
+ColorGradient(0.6875, vec3(0.675, 0.875, 0.0)),
+ColorGradient(0.8, vec3(0.5, 0.5, 0.5)),
 ColorGradient(1.0, vec3(1.0, 1.0, 1.0))
 };
 const float num_color_gradients = color_gradients.length();

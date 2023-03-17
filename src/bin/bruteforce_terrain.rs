@@ -11,9 +11,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use gl::types::{GLintptr, GLsizei};
 use noise::{Billow, MultiFractal, NoiseFn, Perlin, RidgedMulti, ScaleBias, Select};
+use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
 
-use hello_triangle_rust::{imgui_wrapper, renderer};
 use hello_triangle_rust::key_codes::KeyCodes;
 use hello_triangle_rust::mouse_buttons::MouseButtons;
 use hello_triangle_rust::renderer::{
@@ -21,6 +21,9 @@ use hello_triangle_rust::renderer::{
 };
 use hello_triangle_rust::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use hello_triangle_rust::resources::Resources;
+use hello_triangle_rust::{imgui_wrapper, renderer};
+
+use crate::camera::Camera;
 
 type Mat4 = nalgebra_glm::TMat4<f32>;
 
@@ -85,6 +88,8 @@ fn main() -> Result<()> {
         &[&terrain_texture],
         &[],
     )?;
+
+    let mut camera = Camera::default();
 
     let mut mouse_buttons = MouseButtons::default();
     let mut key_codes = KeyCodes::default();
@@ -151,6 +156,38 @@ fn main() -> Result<()> {
             &mut chars,
         );
 
+        let speed = 0.005f32;
+        if key_codes[Keycode::W] {
+            camera.move_forward(speed);
+        }
+        if key_codes[Keycode::S] {
+            camera.move_forward(-speed);
+        }
+        if key_codes[Keycode::D] {
+            camera.move_right(speed);
+        }
+        if key_codes[Keycode::A] {
+            camera.move_right(-speed);
+        }
+        if key_codes[Keycode::Space] {
+            camera.move_up(speed);
+        }
+        if key_codes[Keycode::LCtrl] {
+            camera.move_up(-speed);
+        }
+        if key_codes[Keycode::Up] {
+            camera.look_up(speed);
+        }
+        if key_codes[Keycode::Down] {
+            camera.look_up(-speed);
+        }
+        if key_codes[Keycode::Right] {
+            camera.look_right(speed);
+        }
+        if key_codes[Keycode::Left] {
+            camera.look_right(-speed);
+        }
+
         let time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
         let angle = ((time % (90 * 360)) as f32).to_radians() / 90f32;
         let position = nalgebra_glm::vec3(angle.cos() * 2f32, 1f32, angle.sin() * 2f32);
@@ -159,6 +196,7 @@ fn main() -> Result<()> {
             &nalgebra_glm::vec3(0f32, 0f32, 0f32),
             &nalgebra_glm::vec3(0f32, 1f32, 0f32),
         );
+        matrix_uniforms.view = camera.view_matrix();
 
         let matrix_uniforms_ptr = matrix_uniform_buffer.map::<MatrixUniform>();
         matrix_uniforms_ptr.copy_from_slice(&[matrix_uniforms]);
@@ -291,4 +329,87 @@ fn initialize_terrain_indices(width: usize, height: usize) -> Result<Buffer> {
     ptr.copy_from_slice(&indices);
     index_buffer.unmap();
     Ok(index_buffer)
+}
+
+mod camera {
+    use std::cmp::{max, min};
+
+    #[derive(Default)]
+    pub struct Camera {
+        position: nalgebra_glm::Vec3,
+        yaw: f32,
+        pitch: f32,
+    }
+
+    impl Camera {
+        pub fn move_forward(&mut self, units: f32) {
+            self.position += self.forward() * units;
+        }
+
+        pub fn move_right(&mut self, units: f32) {
+            self.position += self.right() * units;
+        }
+
+        pub fn move_up(&mut self, units: f32) {
+            self.position += self.up() * units;
+        }
+
+        pub fn look_up(&mut self, angle: f32) {
+            self.pitch += angle;
+            if self.pitch > 180f32 {
+                self.pitch = 180f32;
+            }
+            if self.pitch < -180f32 {
+                self.pitch = -180f32;
+            }
+        }
+
+        pub fn look_right(&mut self, angle: f32) {
+            self.yaw += angle;
+        }
+
+        pub fn view_matrix(&self) -> nalgebra_glm::Mat4 {
+            nalgebra_glm::look_at(
+                &self.position,
+                &(self.position + self.forward()),
+                &self.up(),
+            )
+        }
+
+        fn forward(&self) -> nalgebra_glm::Vec3 {
+            self.rotated(&nalgebra_glm::vec3(0f32, 0f32, -1f32))
+        }
+
+        fn backward(&self) -> nalgebra_glm::Vec3 {
+            -self.forward()
+        }
+
+        fn right(&self) -> nalgebra_glm::Vec3 {
+            self.rotated(&nalgebra_glm::vec3(1f32, 0f32, 0f32))
+        }
+
+        fn left(&self) -> nalgebra_glm::Vec3 {
+            -self.right()
+        }
+
+        fn up(&self) -> nalgebra_glm::Vec3 {
+            self.rotated(&nalgebra_glm::vec3(0f32, 1f32, 0f32))
+        }
+
+        fn down(&self) -> nalgebra_glm::Vec3 {
+            -self.up()
+        }
+
+        fn rotated(&self, vector: &nalgebra_glm::Vec3) -> nalgebra_glm::Vec3 {
+            nalgebra_glm::rotate_vec3(
+                &nalgebra_glm::rotate_vec3(
+                    &vector,
+                    self.pitch,
+                    &nalgebra_glm::vec3(1f32, 0f32, 0f32),
+                ),
+                -self.yaw,
+                &nalgebra_glm::vec3(0f32, 1f32, 0f32),
+            )
+        }
+    }
 }
