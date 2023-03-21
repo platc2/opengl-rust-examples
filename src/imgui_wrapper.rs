@@ -1,7 +1,8 @@
-use gl::types::{GLint, GLsizei, GLuint};
-use imgui::{FontAtlas, TextureId};
 use std::any::Any;
 use std::ffi::c_void;
+
+use gl::types::{GLint, GLsizei, GLuint};
+use imgui::{BackendFlags, FontAtlas, TextureId};
 
 use crate::renderer::{Program, Shader, ShaderKind, Texture};
 
@@ -24,6 +25,7 @@ impl Imgui {
     #[must_use]
     pub fn init() -> Self {
         let mut context = imgui::Context::create();
+        context.io_mut().backend_flags = BackendFlags::RENDERER_HAS_VTX_OFFSET;
         let _font_texture = generate_font_texture_from_atlas(context.fonts());
         let program = create_program();
         let mut vertex_buffer_object: GLuint = 0;
@@ -102,8 +104,8 @@ impl Imgui {
     /// - Unimplemented draw command
     #[allow(clippy::too_many_lines)]
     pub fn render<F>(&mut self, mut callback: F)
-    where
-        F: FnMut(&imgui::Ui),
+        where
+            F: FnMut(&imgui::Ui),
     {
         let ui = self.context.frame();
         callback(ui);
@@ -162,7 +164,7 @@ impl Imgui {
                     gl::types::GLsizeiptr::try_from(
                         std::mem::size_of::<imgui::DrawVert>() * vtx_buffer.len(),
                     )
-                    .unwrap_unchecked(),
+                        .unwrap_unchecked(),
                     vtx_buffer.as_ptr().cast(),
                     gl::STREAM_DRAW,
                 );
@@ -171,7 +173,7 @@ impl Imgui {
                     gl::types::GLsizeiptr::try_from(
                         std::mem::size_of::<imgui::DrawIdx>() * idx_buffer.len(),
                     )
-                    .unwrap_unchecked(),
+                        .unwrap_unchecked(),
                     idx_buffer.as_ptr().cast(),
                     gl::STREAM_DRAW,
                 );
@@ -188,7 +190,7 @@ impl Imgui {
                             ];
 
                             let vtx_offset = cmd_params.vtx_offset;
-                            let idx_offset = cmd_params.idx_offset;
+                            let idx_offset = cmd_params.idx_offset * std::mem::size_of::<imgui::DrawIdx>();
                             if clip_rect[0] < frame_buffer_width
                                 && clip_rect[1] < frame_buffer_height
                                 && clip_rect[2] >= 0f32
@@ -223,7 +225,6 @@ impl Imgui {
                             panic!("Unimplemented! {:?}", x.type_id());
                         }
                     }
-                    //                    gl::DrawElements(gl::TRIANGLES, command.ElemCount, gl::UNSIGNED_SHORT, std::ptr::null());
                 }
             }
 
@@ -242,7 +243,7 @@ fn generate_font_texture_from_atlas(font_atlas: &mut FontAtlas) -> Texture {
         font_atlas_texture.width as usize,
         font_atlas_texture.height as usize,
     )
-    .expect("Failed to create font texture for Dear ImGui");
+        .expect("Failed to create font texture for Dear ImGui");
     font_atlas.tex_id = TextureId::new(font_texture.handle() as usize);
     font_texture
 }
