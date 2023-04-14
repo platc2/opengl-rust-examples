@@ -1,6 +1,5 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 #![allow(clippy::must_use_candidate)]
-extern crate alloc;
 extern crate core;
 extern crate gl;
 extern crate sdl2;
@@ -10,10 +9,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use gl::types::{GLintptr, GLsizei};
-use noise::{Billow, MultiFractal, NoiseFn, Perlin, RidgedMulti, ScaleBias, Select};
+use imgui::TextureId;
+use noise::{
+    Billow, Cache, MultiFractal, NoiseFn, OpenSimplex, Perlin, RidgedMulti, ScaleBias, Select,
+    Simplex,
+};
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
 
+use hello_triangle_rust::{imgui_wrapper, renderer};
 use hello_triangle_rust::key_codes::KeyCodes;
 use hello_triangle_rust::mouse_buttons::MouseButtons;
 use hello_triangle_rust::renderer::{
@@ -21,7 +25,6 @@ use hello_triangle_rust::renderer::{
 };
 use hello_triangle_rust::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use hello_triangle_rust::resources::Resources;
-use hello_triangle_rust::{imgui_wrapper, renderer};
 
 use crate::camera::Camera;
 
@@ -34,8 +37,8 @@ struct MatrixUniform {
     projection: Mat4,
 }
 
-const TERRAIN_TEXTURE_SIZE: usize = 256;
-const TERRAIN_MESH_SIZE: usize = 128;
+const TERRAIN_TEXTURE_SIZE: usize = 512;
+const TERRAIN_MESH_SIZE: usize = 512;
 
 fn main() -> Result<()> {
     let window_dimension = WindowDimension::default();
@@ -80,12 +83,39 @@ fn main() -> Result<()> {
         VertexAttribute::new(renderer::VertexAttributeFormat::RGB32F, 0),
     )];
 
+    let grass_texture = res
+        .load_image("/textures/grass.jpg")
+        .map_err(Into::into)
+        .and_then(|mut image_data| Texture::from(image_data.as_mut_slice()))
+        .context("Failed to load grass texture")?;
+    let sand_texture = res
+        .load_image("/textures/sand.jpg")
+        .map_err(Into::into)
+        .and_then(|mut image_data| Texture::from(image_data.as_mut_slice()))
+        .context("Failed to load sand texture")?;
+    let stone_texture = res
+        .load_image("/textures/stone.jpg")
+        .map_err(Into::into)
+        .and_then(|mut image_data| Texture::from(image_data.as_mut_slice()))
+        .context("Failed to load stone texture")?;
+    let snow_texture = res
+        .load_image("/textures/snow.jpg")
+        .map_err(Into::into)
+        .and_then(|mut image_data| Texture::from(image_data.as_mut_slice()))
+        .context("Failed to load snow texture")?;
+
     let main_render_pass = RenderPass::new(
         &terrain_vertex_shader,
         &terrain_fragment_shader,
         &vertex_bindings,
         &[&matrix_uniform_buffer],
-        &[&terrain_texture],
+        &[
+            &terrain_texture,
+            &grass_texture,
+            &sand_texture,
+            &stone_texture,
+            &snow_texture,
+        ],
         &[],
     )?;
 
@@ -207,9 +237,12 @@ fn main() -> Result<()> {
                 gl::FRONT_AND_BACK,
                 if wireframe { gl::LINE } else { gl::FILL },
             );
+
             main_render_pass.display();
 
-            gl::Disable(gl::CULL_FACE);
+            gl::Enable(gl::CULL_FACE);
+            gl::CullFace(gl::BACK);
+            gl::FrontFace(gl::CW);
             gl::Enable(gl::DEPTH_TEST);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Viewport(0, 0, 900, 700);
@@ -243,35 +276,36 @@ fn main() -> Result<()> {
 }
 
 fn initialize_terrain(width: usize, height: usize) -> Result<Texture> {
-    let mut image_data = Vec::<u8>::with_capacity(width * height * 4);
+    let mut image_data = vec![0u8; width * height * 4];
 
-    let base_mountain_terrain = RidgedMulti::<Perlin>::default()
-        .set_frequency(2.5)
+    let base_mountain_terrain = RidgedMulti::<OpenSimplex>::default()
+        .set_frequency(3.0)
         .set_attenuation(1.2)
-        .set_persistence(0.5)
-        .set_lacunarity(1.8);
+        .set_persistence(0.7)
+        .set_lacunarity(1.6);
     let mountain_terrain = ScaleBias::new(base_mountain_terrain)
-        .set_scale(1.0)
+        .set_scale(0.5)
         .set_bias(0.5);
-    let base_flat_terrain = Billow::<Perlin>::default().set_frequency(2.0);
+    let base_flat_terrain = Billow::<OpenSimplex>::default().set_frequency(2.0);
     let flat_terrain = ScaleBias::new(base_flat_terrain)
         .set_scale(0.125)
         .set_bias(0.25);
     let noise = Select::new(mountain_terrain, flat_terrain, Perlin::default()).set_falloff(0.8);
+    let noise = Cache::new(noise);
 
     for y in 0..height {
+        let base_index = y * width;
         for x in 0..width {
+            let index = base_index + x;
             let x = x as f64 / width as f64;
             let y = y as f64 / height as f64;
-            let height = (1.0 + noise.get([x, y])) / 2.0;
-            image_data.push((height * 256.0) as u8);
-            image_data.push(0);
-            image_data.push(0);
-            image_data.push(0);
+            let noise_value = noise.get([x, y]);
+            let height = (1.0 + noise_value) / 2.0;
+            image_data[index] = (height * 256.0) as u8;
         }
     }
 
-    Ok(Texture::from_raw(image_data.as_slice(), width, height)?)
+    Ok(Texture::from_raw_1(image_data.as_slice(), width, height)?)
 }
 
 fn initialize_terrain_vertices(width: usize, height: usize) -> Result<Buffer> {

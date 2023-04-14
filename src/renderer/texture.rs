@@ -14,6 +14,9 @@ pub enum ImageLoadingError {
     #[error("Image format unsupported")]
     UnsupportedFormat,
 
+    #[error("Resource error: {0}")]
+    Resource(#[from] crate::resources::Error),
+
     #[error("Image is too large")]
     TooLarge,
 }
@@ -66,6 +69,44 @@ impl Image {
 }
 
 impl Texture {
+    pub fn from_raw_1(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
+        let mut handle: GLuint = 0;
+
+        let gl_width = GLsizei::try_from(width).expect("Too wide");
+        let gl_height = GLsizei::try_from(height).expect("Too high");
+
+        // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
+        let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
+
+        unsafe {
+            gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
+            gl::BindTexture(gl::TEXTURE_2D, handle);
+
+            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
+            gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
+        }
+
+        unsafe {
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0 as GLint,
+                gl::R8 as GLint,
+                gl_width,
+                gl_height,
+                0 as GLint,
+                gl::RED,
+                gl::UNSIGNED_BYTE,
+                image_data.as_ptr().cast::<c_void>(),
+            );
+            gl::GenerateTextureMipmap(handle);
+        }
+        Ok(Self {
+            handle,
+            width,
+            height,
+        })
+    }
+
     /// # Errors
     pub fn from_raw(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
         let mut handle: GLuint = 0;
@@ -119,7 +160,7 @@ impl Texture {
             gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
             gl::BindTexture(gl::TEXTURE_2D, handle);
 
-            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
+            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as GLint);
             gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
         }
 
