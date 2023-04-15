@@ -3,10 +3,7 @@
 
 layout (location = 0) in vec3 vertex;
 
-layout (location = 0) out SHADER_VARYING {
-    vec3 normal;
-    vec2 uv;
-} pass;
+layout (location = 0) out vec2 uv;
 
 layout (binding = 0) uniform sampler2D heightmap;
 
@@ -17,20 +14,18 @@ layout (std140, binding = 0) uniform Matrix {
 } matrix;
 
 
+vec3 offset_vertex(vec3 vertex, float height);
 
 void main() {
-    const vec2 uv = vec2((vertex.x + 1.0) / 2.0, (vertex.z + 1.0) / 2.0);
-    const float height = texture(heightmap, uv).r;
-    pass.uv = uv;
-    const vec3 heightmap_vertex = vec3(vertex.x, vertex.y + height * 0.5, vertex.z);
+    uv = vec2((vertex.x + 1.0) / 2.0, (vertex.z + 1.0) / 2.0);
 
-    // compute normal vector
-    const float offset = 1.0 / 256.0;
-    vec3 normal = vec3(0.0, offset * 10.0, 0.0);
-    normal.x = texture(heightmap, uv + vec2(0.0, offset)).r - texture(heightmap, uv - vec2(0.0, offset)).r;
-    normal.z = texture(heightmap, uv + vec2(offset, 0.0)).r - texture(heightmap, uv - vec2(offset, 0.0)).r;
-    normal = normalize(normal);
+    float height = texture(heightmap, uv).r;
+    vec3 vertex = offset_vertex(vertex, height);
+    mat4 modelViewProjection = matrix.projection * matrix.view * matrix.model;
+    gl_Position = modelViewProjection * vec4(vertex, 1.0);
+}
 
-    gl_Position = matrix.projection * matrix.view * matrix.model * vec4(heightmap_vertex, 1.0);
-    pass.normal = normal;
+vec3 offset_vertex(vec3 vertex, float height) {
+    vertex.y += height;
+    return vertex;
 }
