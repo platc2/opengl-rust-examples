@@ -130,6 +130,7 @@ impl Imgui {
             gl::Disable(gl::CULL_FACE);
             gl::Disable(gl::DEPTH_TEST);
             gl::Enable(gl::SCISSOR_TEST);
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
 
             let [display_pos_x, display_pos_y] = draw_data.display_pos;
             let [display_size_w, display_size_h] = draw_data.display_size;
@@ -156,6 +157,7 @@ impl Imgui {
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.element_buffer_object);
 
+            gl::ActiveTexture(gl::TEXTURE0);
             for draw_list in draw_data.draw_lists() {
                 let vtx_buffer = draw_list.vtx_buffer();
                 let idx_buffer = draw_list.idx_buffer();
@@ -214,7 +216,7 @@ impl Imgui {
                                 };
                                 gl::DrawElementsBaseVertex(
                                     gl::TRIANGLES,
-                                    GLsizei::try_from(count * 3).unwrap_unchecked(),
+                                    GLsizei::try_from(count).unwrap_unchecked(),
                                     gl_type,
                                     idx_offset as *const c_void,
                                     vtx_offset as GLint,
