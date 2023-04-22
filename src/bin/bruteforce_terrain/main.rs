@@ -4,6 +4,7 @@ extern crate core;
 extern crate gl;
 extern crate sdl2;
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -15,6 +16,7 @@ use noise::{
     Simplex,
 };
 use sdl2::keyboard::Keycode;
+use sdl2::libc::exit;
 use sdl2::mouse::MouseButton;
 
 use hello_triangle_rust::{imgui_wrapper, renderer};
@@ -27,18 +29,17 @@ use hello_triangle_rust::renderer_context::{OpenGLVersion, RendererContext, Wind
 use hello_triangle_rust::resources::Resources;
 
 use crate::camera::Camera;
+use crate::chunk::{Chunk, ChunkPosition};
+use crate::matrix_uniform::MatrixUniform;
+use crate::terrain_mesh::TerrainMesh;
 
-type Mat4 = nalgebra_glm::TMat4<f32>;
+mod chunk;
+mod terrain_mesh;
+mod matrix_uniform;
+mod camera;
 
-#[derive(Default, Copy, Clone)]
-struct MatrixUniform {
-    model: Mat4,
-    view: Mat4,
-    projection: Mat4,
-}
-
-const TERRAIN_TEXTURE_SIZE: usize = 512;
-const TERRAIN_MESH_SIZE: usize = 512;
+const TERRAIN_SIZE: usize = 32;
+const CHUNK_LOAD_AREA: (usize, usize) = (5, 5);
 
 fn main() -> Result<()> {
     let window_dimension = WindowDimension::default();
@@ -63,9 +64,8 @@ fn main() -> Result<()> {
         100f32,
     );
 
-    let terrain_texture = initialize_terrain(TERRAIN_TEXTURE_SIZE, TERRAIN_TEXTURE_SIZE)?;
-    let vertex_buffer = initialize_terrain_vertices(TERRAIN_MESH_SIZE, TERRAIN_MESH_SIZE)?;
-    let index_buffer = initialize_terrain_indices(TERRAIN_MESH_SIZE, TERRAIN_MESH_SIZE)?;
+    let terrain_texture = Texture::blank(0, 0);
+    let terrain_mesh = TerrainMesh::of_size(TERRAIN_SIZE, TERRAIN_SIZE)?;
 
     let terrain_vertex_shader = res
         .load_string("/shaders/terrain.vert")
@@ -77,6 +77,11 @@ fn main() -> Result<()> {
         .map_err(Into::into)
         .and_then(|source| Shader::from_source(&source, ShaderKind::Fragment))
         .context("Failed to initialize terrain fragment shader")?;
+    let terrain_geometry_shader = res
+        .load_string("/shaders/terrain.geom")
+        .map_err(Into::into)
+        .and_then(|source| Shader::from_source(&source, ShaderKind::Geometry))
+        .context("Failed to initialize terrain geometry shader")?;
 
     let vertex_bindings = [VertexBinding::new(
         0,
@@ -104,9 +109,10 @@ fn main() -> Result<()> {
         .and_then(|mut image_data| Texture::from(image_data.as_mut_slice()))
         .context("Failed to load snow texture")?;
 
-    let main_render_pass = RenderPass::new(
+    let main_render_pass = RenderPass::new_geom(
         &terrain_vertex_shader,
         &terrain_fragment_shader,
+        &terrain_geometry_shader,
         &vertex_bindings,
         &[&matrix_uniform_buffer],
         &[
@@ -120,6 +126,14 @@ fn main() -> Result<()> {
     )?;
 
     let mut camera = Camera::default();
+    let mut chunks = std::collections::HashMap::new();
+    for y in 0..CHUNK_LOAD_AREA.0 {
+        for x in 0..CHUNK_LOAD_AREA.1 {
+            let x = (x as i32) - ((CHUNK_LOAD_AREA.0 as i32) / 2);
+            let y = (y as i32) - ((CHUNK_LOAD_AREA.1 as i32) / 2);
+            chunks.insert((x, y), initialize_chunk((x, y))?);
+        }
+    }
 
     let mut mouse_buttons = MouseButtons::default();
     let mut key_codes = KeyCodes::default();
@@ -134,6 +148,9 @@ fn main() -> Result<()> {
 
     let mut imgui_context = imgui_wrapper::Imgui::init();
     let mut wireframe = false;
+
+    let max_count = 2 * (terrain_mesh.width() + 2) * terrain_mesh.height();
+    let mut count = max_count;
 
     'main: loop {
         for event in event_pump.poll_iter() {
@@ -171,6 +188,32 @@ fn main() -> Result<()> {
                 } => key_codes[keycode] = false,
                 _ => {}
             }
+        }
+
+        let chunk_x = camera.position().x.round() as i32;
+        let chunk_y = camera.position().z.round() as i32;
+        let mut keys_to_remove = HashSet::<ChunkPosition>::new();
+        let mut keys_to_add = HashSet::<ChunkPosition>::new();
+
+        for y in 0..CHUNK_LOAD_AREA.0 {
+            for x in 0..CHUNK_LOAD_AREA.1 {
+                let x = (x as i32) - (CHUNK_LOAD_AREA.0 as i32 / 2) + chunk_x;
+                let y = (y as i32) - (CHUNK_LOAD_AREA.1 as i32 / 2) + chunk_y;
+                keys_to_add.insert((x, y));
+            }
+        }
+
+        for key in chunks.keys() {
+            if keys_to_add.contains(key) {
+                keys_to_add.remove(key);
+            } else {
+                keys_to_remove.insert(*key);
+            }
+        }
+
+        chunks.retain(|key, _| !keys_to_remove.contains(key));
+        for key in keys_to_add {
+            chunks.insert(key, initialize_chunk(key)?);
         }
 
         imgui_context.prepare(
@@ -218,14 +261,6 @@ fn main() -> Result<()> {
             camera.look_right(-speed);
         }
 
-        let time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
-        let angle = ((time % (90 * 360)) as f32).to_radians() / 90f32;
-        let position = nalgebra_glm::vec3(angle.cos() * 2f32, 1f32, angle.sin() * 2f32);
-        matrix_uniforms.view = nalgebra_glm::look_at(
-            &position,
-            &nalgebra_glm::vec3(0f32, 0f32, 0f32),
-            &nalgebra_glm::vec3(0f32, 1f32, 0f32),
-        );
         matrix_uniforms.view = camera.view_matrix();
 
         let matrix_uniforms_ptr = matrix_uniform_buffer.map::<MatrixUniform>();
@@ -246,20 +281,35 @@ fn main() -> Result<()> {
             gl::Enable(gl::DEPTH_TEST);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Viewport(0, 0, 900, 700);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, index_buffer.handle());
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, terrain_mesh.index_buffer_handle());
             gl::BindVertexBuffer(
                 0,
-                vertex_buffer.handle(),
+                terrain_mesh.vertex_buffer_handle(),
                 0 as GLintptr,
                 GLsizei::try_from(std::mem::size_of::<f32>() * 3).unwrap(),
             );
-            let count = index_buffer.size() / std::mem::size_of::<u16>();
-            gl::DrawElements(
-                gl::TRIANGLE_STRIP,
-                count as GLsizei,
-                gl::UNSIGNED_INT,
-                std::ptr::null(),
-            );
+
+            for chunk in &chunks {
+                let position = chunk.1.position();
+                matrix_uniforms.model = nalgebra_glm::translation(&nalgebra_glm::vec3(
+                    position.0 as f32,
+                    0f32,
+                    position.1 as f32));
+
+                let matrix_uniforms_ptr = matrix_uniform_buffer.map::<MatrixUniform>();
+                matrix_uniforms_ptr.copy_from_slice(&[matrix_uniforms]);
+                matrix_uniform_buffer.unmap();
+
+                gl::ActiveTexture(gl::TEXTURE0);
+                gl::BindTexture(gl::TEXTURE_2D, chunk.1.texture_handle());
+
+                gl::DrawElements(
+                    gl::TRIANGLE_STRIP,
+                    count as GLsizei,
+                    gl::UNSIGNED_SHORT,
+                    std::ptr::null(),
+                );
+            }
         }
 
         imgui_context.render(|ui| {
@@ -268,6 +318,7 @@ fn main() -> Result<()> {
                 .always_auto_resize(true)
                 .build(|| {
                     ui.checkbox("Wireframe", &mut wireframe);
+                    ui.slider("Num vertices", 0, max_count, &mut count);
                 });
         });
 
@@ -275,7 +326,13 @@ fn main() -> Result<()> {
     }
 }
 
-fn initialize_terrain(width: usize, height: usize) -> Result<Texture> {
+fn initialize_chunk(position: ChunkPosition) -> Result<Chunk> {
+    let texture = initialize_terrain(TERRAIN_SIZE, TERRAIN_SIZE, position.0, position.1)?;
+
+    Ok(Chunk::init_chunk(position, texture))
+}
+
+fn initialize_terrain(width: usize, height: usize, x_offset: i32, y_offset: i32) -> Result<Texture> {
     let mut image_data = vec![0u8; width * height * 4];
 
     let base_mountain_terrain = RidgedMulti::<OpenSimplex>::default()
@@ -299,6 +356,8 @@ fn initialize_terrain(width: usize, height: usize) -> Result<Texture> {
             let index = base_index + x;
             let x = x as f64 / width as f64;
             let y = y as f64 / height as f64;
+            let x = x + (x_offset as f64) * 0.5;
+            let y = y + (y_offset as f64) * 0.5;
             let noise_value = noise.get([x, y]);
             let height = (1.0 + noise_value) / 2.0;
             image_data[index] = (height * 256.0) as u8;
@@ -306,144 +365,4 @@ fn initialize_terrain(width: usize, height: usize) -> Result<Texture> {
     }
 
     Ok(Texture::from_raw_1(image_data.as_slice(), width, height)?)
-}
-
-fn initialize_terrain_vertices(width: usize, height: usize) -> Result<Buffer> {
-    let num_vertices = width * height * 3;
-    let mut vertices = vec![0f32; num_vertices];
-
-    for y in 0..height {
-        for x in 0..width {
-            let index = ((y * width) + x) * 3;
-            #[allow(clippy::cast_precision_loss)]
-            let pos_x = (x as f32 * 2f32) / (width as f32) - 1f32;
-            #[allow(clippy::cast_precision_loss)]
-            let pos_z = (y as f32 * 2f32) / (height as f32) - 1f32;
-            vertices[index] = pos_x;
-            vertices[index + 1] = 0f32;
-            vertices[index + 2] = pos_z;
-        }
-    }
-
-    let mut vertex_buffer = Buffer::allocate(
-        BufferUsage::Vertex,
-        std::mem::size_of::<f32>() * vertices.len(),
-    )?;
-    let ptr = vertex_buffer.map::<f32>();
-    ptr.copy_from_slice(&vertices);
-    vertex_buffer.unmap();
-    Ok(vertex_buffer)
-}
-
-fn initialize_terrain_indices(width: usize, height: usize) -> Result<Buffer> {
-    let width = u32::try_from(width)?;
-    let height = u32::try_from(height)?;
-    let mut indices = vec![0u32; 0];
-
-    for y in 0..(height - 1) {
-        for x in 0..width {
-            let row_index = (y * width) + x;
-            let next_row_index = ((y + 1) * width) + x;
-            if x == 0 {
-                indices.push(row_index);
-            };
-            indices.push(row_index);
-            indices.push(next_row_index);
-            if x == (width - 1) {
-                indices.push(next_row_index);
-            };
-        }
-    }
-
-    let mut index_buffer = Buffer::allocate(
-        BufferUsage::Index,
-        std::mem::size_of::<u32>() * indices.len(),
-    )?;
-    let ptr = index_buffer.map();
-    ptr.copy_from_slice(&indices);
-    index_buffer.unmap();
-    Ok(index_buffer)
-}
-
-mod camera {
-    use std::cmp::{max, min};
-
-    #[derive(Default)]
-    pub struct Camera {
-        position: nalgebra_glm::Vec3,
-        yaw: f32,
-        pitch: f32,
-    }
-
-    impl Camera {
-        pub fn move_forward(&mut self, units: f32) {
-            self.position += self.forward() * units;
-        }
-
-        pub fn move_right(&mut self, units: f32) {
-            self.position += self.right() * units;
-        }
-
-        pub fn move_up(&mut self, units: f32) {
-            self.position += self.up() * units;
-        }
-
-        pub fn look_up(&mut self, angle: f32) {
-            self.pitch += angle;
-            if self.pitch > 180f32 {
-                self.pitch = 180f32;
-            }
-            if self.pitch < -180f32 {
-                self.pitch = -180f32;
-            }
-        }
-
-        pub fn look_right(&mut self, angle: f32) {
-            self.yaw += angle;
-        }
-
-        pub fn view_matrix(&self) -> nalgebra_glm::Mat4 {
-            nalgebra_glm::look_at(
-                &self.position,
-                &(self.position + self.forward()),
-                &self.up(),
-            )
-        }
-
-        fn forward(&self) -> nalgebra_glm::Vec3 {
-            self.rotated(&nalgebra_glm::vec3(0f32, 0f32, -1f32))
-        }
-
-        fn backward(&self) -> nalgebra_glm::Vec3 {
-            -self.forward()
-        }
-
-        fn right(&self) -> nalgebra_glm::Vec3 {
-            self.rotated(&nalgebra_glm::vec3(1f32, 0f32, 0f32))
-        }
-
-        fn left(&self) -> nalgebra_glm::Vec3 {
-            -self.right()
-        }
-
-        fn up(&self) -> nalgebra_glm::Vec3 {
-            self.rotated(&nalgebra_glm::vec3(0f32, 1f32, 0f32))
-        }
-
-        fn down(&self) -> nalgebra_glm::Vec3 {
-            -self.up()
-        }
-
-        fn rotated(&self, vector: &nalgebra_glm::Vec3) -> nalgebra_glm::Vec3 {
-            nalgebra_glm::rotate_vec3(
-                &nalgebra_glm::rotate_vec3(
-                    &vector,
-                    self.pitch,
-                    &nalgebra_glm::vec3(1f32, 0f32, 0f32),
-                ),
-                -self.yaw,
-                &nalgebra_glm::vec3(0f32, 1f32, 0f32),
-            )
-        }
-    }
 }
