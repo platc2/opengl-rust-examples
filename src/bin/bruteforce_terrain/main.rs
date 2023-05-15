@@ -126,6 +126,7 @@ fn main() -> Result<()> {
     )?;
 
     let mut camera = Camera::default();
+    camera.move_up(1f32);
     let mut chunks = std::collections::HashMap::new();
     for y in 0..CHUNK_LOAD_AREA.0 {
         for x in 0..CHUNK_LOAD_AREA.1 {
