@@ -84,6 +84,8 @@ impl Texture {
 
             gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
             gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
+            gl::TextureParameteri(handle, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+            gl::TextureParameteri(handle, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
         }
 
         unsafe {
