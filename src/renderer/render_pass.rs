@@ -141,6 +141,99 @@ impl RenderPass {
             frame_buffer,
         })
     }
+
+    pub fn new_geom(
+        vertex_shader: &Shader,
+        fragment_shader: &Shader,
+        geometry_shader: &Shader,
+        vertex_bindings: &[VertexBinding],
+        uniform_buffers: &[&Buffer],
+        textures: &[&Texture],
+        attachments: &[&Texture],
+    ) -> Result<Self> {
+        let mut vertex_array_object: GLuint = 0;
+        unsafe {
+            gl::CreateVertexArrays(1, &mut vertex_array_object);
+        }
+
+        for (
+            index,
+            VertexBinding {
+                binding_index,
+                vertex_attribute,
+            },
+        ) in vertex_bindings.iter().enumerate()
+        {
+            let index = GLuint::try_from(index).map_err(|_| Error::TooManyVertexBindings)?;
+            let (format_size, format_type) = convert_format(vertex_attribute.format());
+            unsafe {
+                gl::EnableVertexArrayAttrib(vertex_array_object, index);
+                gl::VertexArrayAttribFormat(
+                    vertex_array_object,
+                    index,
+                    format_size,
+                    format_type,
+                    gl::FALSE,
+                    GLuint::from(vertex_attribute.offset()),
+                );
+                gl::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
+            }
+        }
+
+        let program = Program::from_shaders(&[vertex_shader, fragment_shader, geometry_shader])?;
+
+        // Buffer object already checks for valid size
+        #[allow(clippy::cast_possible_wrap)]
+            let uniform_buffers = uniform_buffers
+            .iter()
+            .map(|&buffer| (buffer.handle(), buffer.size() as GLsizeiptr))
+            .collect();
+
+        let textures = textures.iter().map(|texture| texture.handle()).collect();
+
+        let mut frame_buffer: GLuint = 0;
+        if !attachments.is_empty() {
+            unsafe {
+                gl::CreateFramebuffers(1, &mut frame_buffer);
+                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, frame_buffer);
+
+                for (index, attachment) in attachments.iter().enumerate() {
+                    gl::BindTexture(gl::TEXTURE_2D, attachment.handle());
+                    gl::FramebufferTexture2D(
+                        gl::DRAW_FRAMEBUFFER,
+                        index_to_color_attachment_slot(index),
+                        gl::TEXTURE_2D,
+                        attachment.handle(),
+                        0,
+                    );
+                }
+
+                let mut render_buffer: GLuint = 0;
+                gl::CreateRenderbuffers(1, &mut render_buffer);
+                gl::BindRenderbuffer(gl::RENDERBUFFER, render_buffer);
+                gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 1024, 1024);
+                gl::FramebufferRenderbuffer(
+                    gl::FRAMEBUFFER,
+                    gl::DEPTH_STENCIL_ATTACHMENT,
+                    gl::RENDERBUFFER,
+                    render_buffer,
+                );
+            }
+
+            match unsafe { gl::CheckFramebufferStatus(gl::DRAW_FRAMEBUFFER) } {
+                gl::FRAMEBUFFER_COMPLETE => (),
+                e => panic!("{:x} INCOMPLETE!", e),
+            }
+        }
+
+        Ok(Self {
+            vertex_array_object,
+            program,
+            uniform_buffers,
+            textures,
+            frame_buffer,
+        })
+    }
     /// # Errors
     /// - Invalid shaders
     ///   - Compile errors
