@@ -118,7 +118,7 @@ impl Texture {
 
         // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
         let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
-        let gl_rgba = unsafe { GLint::try_from(gl::RGBA).unwrap_unchecked() };
+        let gl_rgba = unsafe { GLint::try_from(gl::RGBA32F).unwrap_unchecked() };
 
         unsafe {
             gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
@@ -156,7 +156,7 @@ impl Texture {
 
         // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
         let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
-        let gl_rgba = unsafe { GLint::try_from(gl::RGBA).unwrap_unchecked() };
+        let gl_rgba = unsafe { GLint::try_from(gl::RGBA32F).unwrap_unchecked() };
 
         unsafe {
             gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
@@ -208,7 +208,7 @@ impl Texture {
 
         // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
         let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
-        let gl_rgba = unsafe { GLint::try_from(gl::RGBA).unwrap_unchecked() };
+        let gl_rgba = unsafe { GLint::try_from(gl::RGBA32F).unwrap_unchecked() };
 
         unsafe {
             gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);

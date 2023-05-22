@@ -29,7 +29,8 @@ pub enum Kind {
     Fragment,
     Geometry,
     TessellationControl,
-    TessellationEvaluation
+    TessellationEvaluation,
+    Compute
 }
 
 pub struct Shader {
@@ -62,7 +63,8 @@ impl Shader {
             Kind::Fragment => gl::FRAGMENT_SHADER,
             Kind::Geometry => gl::GEOMETRY_SHADER,
             Kind::TessellationControl => gl::TESS_CONTROL_SHADER,
-            Kind::TessellationEvaluation => gl::TESS_EVALUATION_SHADER
+            Kind::TessellationEvaluation => gl::TESS_EVALUATION_SHADER,
+            Kind::Compute => gl::COMPUTE_SHADER,
         };
 
         let source = &CString::new(source).expect("Shader source contains invalid characters");
