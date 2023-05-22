@@ -7,6 +7,7 @@ extern crate sdl2;
 
 use core::fmt::{Display, Formatter};
 use std::path::Path;
+use anyhow::{Result, Context};
 
 use gl::types::GLsizei;
 use imgui::SliderFlags;
@@ -78,7 +79,7 @@ struct WorldSettings {
     pub mie_scale_height: f32,
 }
 
-fn main() -> Result<(), String> {
+fn main() -> Result<()> {
     // Planet looks better if screen is a square
     let window_dimension = WindowDimension::of(800, 800);
 
@@ -87,10 +88,10 @@ fn main() -> Result<(), String> {
         &window_dimension,
         &OpenGLVersion::default(),
     )
-    .map_err(|e| format!("{e}"))?;
+        .context("Failed to initialize renderer context")?;
 
-    let res = Resources::from_relative_exe_path(Path::new("../../assets/atmospheric_scattering"))
-        .map_err(|e| format!("{e}"))?;
+    let res = Resources::from_relative_exe_path(Path::new("assets/atmospheric_scattering"))
+        .context("Failed to initialize resources")?;
 
     let vertices = vec![
         -1f32, 1f32, -1f32, -1f32, 1f32, -1f32, 1f32, -1f32, 1f32, 1f32, -1f32, 1f32,
@@ -99,7 +100,7 @@ fn main() -> Result<(), String> {
         BufferUsage::Vertex,
         std::mem::size_of::<f32>() * vertices.len(),
     )
-    .map_err(|e| format!("{e}"))?;
+        .context("Failed to allocate vertex buffer")?;
     let vertex_ptr = vertex_buffer.map();
     vertex_ptr.copy_from_slice(&vertices);
     vertex_buffer.unmap();
@@ -107,7 +108,7 @@ fn main() -> Result<(), String> {
     let mut camera_settings = CameraSettings::default();
     let mut camera_settings_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<CameraSettings>())
-            .map_err(|e| format!("{e}"))?;
+            .context("Failed to allocate camera settings buffer")?;
 
     let mut world_settings = WorldSettings {
         time: 0f32,
@@ -122,20 +123,17 @@ fn main() -> Result<(), String> {
     };
     let mut world_settings_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<WorldSettings>())
-            .map_err(|e| format!("{e}"))?;
+            .context("Failed to allocate world settings buffer")?;
 
-    let vertex = Shader::from_source(
-        &res.load_string("/shaders/cube.vert")
-            .map_err(|e| format!("{e}"))?,
-        ShaderKind::Vertex,
-    )
-    .map_err(|e| format!("{e}"))?;
-    let planet_fragment = Shader::from_source(
-        &res.load_string("/shaders/planet.frag")
-            .map_err(|e| format!("{e}"))?,
-        ShaderKind::Fragment,
-    )
-    .map_err(|e| format!("{e}"))?;
+    let vertex = res.load_string("/shaders/cube.vert")
+        .map_err(Into::into)
+        .and_then(|source| Shader::from_source(&source, ShaderKind::Vertex))
+        .context("Failed to initialize cube vertex shader")?;
+    let planet_fragment = res.load_string("/shaders/planet.frag")
+        .map_err(Into::into)
+        .and_then(|source| Shader::from_source(&source, ShaderKind::Fragment))
+        .context("Failed to initialize planet fragment shader")?;
+
     let planet_vertex_bindings = [VertexBinding::new(
         0,
         VertexAttribute::new(VertexAttributeFormat::RG32F, 0),
@@ -149,14 +147,12 @@ fn main() -> Result<(), String> {
         &[],
         &[&planet_texture],
     )
-    .map_err(|e| format!("{e}"))?;
+        .context("Failed to initialize planet render pass")?;
 
-    let fragment = Shader::from_source(
-        &res.load_string("/shaders/sky.frag")
-            .map_err(|e| format!("{e}"))?,
-        ShaderKind::Fragment,
-    )
-    .map_err(|e| format!("{e}"))?;
+    let fragment = res.load_string("/shaders/sky.frag")
+        .map_err(Into::into)
+        .and_then(|source| Shader::from_source(&source, ShaderKind::Fragment))
+        .context("Failed to initialize sky fragment shader")?;
 
     let vertex_bindings = [VertexBinding::new(
         0,
@@ -171,7 +167,7 @@ fn main() -> Result<(), String> {
         &[&planet_texture],
         &[],
     )
-    .map_err(|e| format!("{e}"))?;
+        .context("Failed to initialize render pass")?;
 
     let mut position = Position {
         altitude: 1f32,

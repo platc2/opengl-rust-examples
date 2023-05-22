@@ -31,7 +31,7 @@ fn main() -> Result<(), String> {
     )
     .map_err(|e| format!("{e}"))?;
 
-    let res = Resources::from_relative_exe_path(Path::new("../../assets/tessellation"))
+    let res = Resources::from_relative_exe_path(Path::new("assets/tessellation"))
         .map_err(|e| format!("{e}"))?;
 
     let mut tessellation_parameters = TessellationParameters {

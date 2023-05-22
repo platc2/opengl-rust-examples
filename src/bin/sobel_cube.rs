@@ -43,7 +43,7 @@ fn main() -> Result<()> {
         gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
     }
 
-    let res = Resources::from_relative_exe_path(Path::new("../../assets/sobel_cube"))?;
+    let res = Resources::from_relative_exe_path(Path::new("assets/sobel_cube"))?;
 
     let vertex_buffer = initialize_vertices()?;
     let index_buffer = initialize_indices()?;
