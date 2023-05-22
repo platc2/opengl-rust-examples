@@ -28,7 +28,7 @@ fn main() -> Result<()> {
         &OpenGLVersion::default(),
     )?;
 
-    let res = Resources::from_relative_exe_path(Path::new("../../assets/hello_triangle"))?;
+    let res = Resources::from_relative_exe_path(Path::new("assets/hello_triangle"))?;
 
     let vertex_buffer = initialize_vertices()?;
 

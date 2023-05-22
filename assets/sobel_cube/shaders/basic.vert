@@ -1,5 +1,4 @@
-#version 410 core
-#extension GL_ARB_shading_language_420pack : require
+#version 420 core
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec2 in_uv;
@@ -10,7 +9,7 @@ layout (std140, binding = 0) uniform Matrices {
     mat4 u_viewProjection;
 };
 
-layout (location = 0) out SHADER_VARYING {
+layout (binding = 0) out SHADER_VARYING {
 vec2 uv;
 vec3 normal;
 vec3 frag_coord;

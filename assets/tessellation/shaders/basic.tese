@@ -1,4 +1,4 @@
-#version 410 core
+#version 420 core
 
 
 // layout (triangles, fractional_odd_spacing, ccw) in;

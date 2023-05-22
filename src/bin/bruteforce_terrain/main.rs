@@ -50,7 +50,7 @@ fn main() -> Result<()> {
         &OpenGLVersion::default(),
     )?;
 
-    let res = Resources::from_relative_exe_path(Path::new("../../assets/bruteforce_terrain"))?;
+    let res = Resources::from_relative_exe_path(Path::new("assets/bruteforce_terrain"))?;
 
     let mut matrix_uniform_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<MatrixUniform>())?;
