@@ -1,9 +1,9 @@
-#version 410 core
+#version 420
 
 layout (location = 0) in vec2 in_position;
 layout (location = 1) in vec2 in_uv;
 
-layout (location = 0) out SHADER_VARYING {
+layout (binding = 0) out SHADER_VARYING {
     vec2 uv;
 } OUT;
 
