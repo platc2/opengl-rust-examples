@@ -27,6 +27,9 @@ Example project for small OpenGL programs written in Rust. The project consists 
 
 |Tessellation
 |Example for triangle tessellation
+
+|Simple Raytracer
+|A simple example of a raytracer using OpenGL compute shaders
 |===
 
 Code has been ported from C++ to Rust from {voxel-rendering-repo}[this repository^] and extended using {opengl-from-scratch}[this article^].
@@ -65,3 +68,6 @@ image::images/atmospheric_scattering_space.png[width=25%]
 
 .Triangle Tessellation
 image::images/tessellation.png[width=25%]
+
+.Simple Raytracer
+image::images/simple_raytracer.png[width=25%]

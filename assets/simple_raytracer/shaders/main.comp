@@ -1,0 +1,106 @@
+#version 430 core
+
+
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+struct Sphere {
+    vec3 centre;
+    float radius;
+    vec4 color;
+};
+
+struct HitResult {
+    float enter_distance;
+    float exit_distance;
+};
+
+
+layout (local_size_x = 1, local_size_y = 1) in;
+layout (rgba32f, binding = 0) uniform image2D image_output;
+
+layout (location = 0) uniform vec3 camera_position;
+layout (location = 1) uniform vec3 camera_direction;
+layout (location = 2) uniform vec3 camera_up;
+
+layout (std430, binding = 5) coherent readonly buffer input_spheres {
+    Sphere spheres[];
+};
+
+
+/**
+ * Computes the intersection points of a ray and a sphere. Returns a tuple as hit result where both value
+ * indicate the distance when the ray enters and exits the sphere.
+ */
+bool ray_sphere(const Sphere sphere, const Ray ray, out HitResult hit_result);
+
+
+void main() {
+    const ivec2 pixel_coordinates = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 image_dimensions = imageSize(image_output);
+    const vec2 normalized_coordinates = vec2(
+        (float(pixel_coordinates.x * 2 - image_dimensions.x)) / image_dimensions.x,
+        (float(pixel_coordinates.y * 2 - image_dimensions.y)) / image_dimensions.y);
+    const vec3 coordinate_offset = camera_position;
+
+    const vec3 light_position = vec3(10, 5, 2);
+    const vec3 camera_side = cross(camera_direction, camera_up);
+    const vec3 ray_direction = normalize((camera_position + camera_direction + camera_side * normalized_coordinates.x + camera_up * -normalized_coordinates.y) - camera_position);
+    const Ray view_ray = Ray(camera_position, ray_direction);
+
+    float minimum_distance = 1e9;
+    HitResult hit_result;
+    int hit_index = -1;
+    for (int i = 0; i < spheres.length(); ++i) {
+        const bool hit = ray_sphere(spheres[i], view_ray, hit_result);
+        if (hit && hit_result.enter_distance < minimum_distance && hit_result.enter_distance > 0) {
+            minimum_distance = hit_result.enter_distance;
+            hit_index = i;
+        }
+    }
+
+    vec3 output_color = vec3(0);
+    if (hit_index >= 0) {
+        const vec3 hit_position = view_ray.origin + view_ray.direction * minimum_distance;
+        const vec3 normal_vector = normalize(hit_position - spheres[hit_index].centre);
+
+        const float diffuse_factor = max(0.1, dot(normal_vector, normalize(light_position - spheres[hit_index].centre)));
+        output_color = diffuse_factor * spheres[hit_index].color.rgb;
+    }
+    imageStore(image_output, pixel_coordinates, vec4(output_color, 1));
+}
+
+
+/**
+ * Computes the intersection points of a ray and a sphere. Returns a tuple as hit result where both value
+ * indicate the distance when the ray enters and exits the sphere.
+ */
+bool ray_sphere(const Sphere sphere, const Ray ray, out HitResult hit_result) {
+    const vec3 offset = ray.origin - sphere.centre;
+    const float a = 1.0;  // Ray direction should be normalized
+    const float b = 2.0 * dot(ray.direction, offset);
+    const float c = dot(offset, offset) - (sphere.radius * sphere.radius);
+
+    const float delta = b * b - 4.0 * a * c;
+    if (delta < 0.0) {
+        // No intersection
+        return false;
+    }
+
+    const float two_a = 2.0 * a;
+    if (delta == 0.0) {
+        // One intersection point, i.e. ray is tangent to sphere
+        const float distance = -(b / two_a);
+        hit_result.enter_distance = distance;
+        hit_result.exit_distance = distance;
+    } else {
+        // Two intersection points
+        const float delta_sqrt = sqrt(delta);
+        hit_result.enter_distance = -(b + delta_sqrt) / two_a;
+        hit_result.exit_distance = -(b - delta_sqrt) / two_a;
+    }
+
+    return true;
+}
