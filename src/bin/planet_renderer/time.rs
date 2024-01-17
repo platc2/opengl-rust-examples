@@ -1,29 +1,34 @@
 pub struct Time {
     start: std::time::Instant,
     last: std::time::Instant,
-    delta_time: std::time::Duration,
+    duration: std::time::Duration,
 }
 
 impl Time {
+    #[must_use]
     pub fn new() -> Self {
         let now = Self::now();
-        Self { start: now, last: now, delta_time: std::time::Duration::default() }
+        Self { start: now, last: now, duration: std::time::Duration::default() }
     }
 
     pub fn update(&mut self) {
         let end = Self::now();
-        self.delta_time = end - self.last;
+        self.duration = end - self.last;
         self.last = end;
     }
 
+    #[must_use]
     pub fn get_duration(&self) -> std::time::Duration {
         let end = Self::now();
         end - self.start
     }
 
-    pub fn delta_time(&self) -> std::time::Duration { self.delta_time }
+    #[must_use]
+    pub fn duration(&self) -> std::time::Duration { self.duration }
 
-    pub fn fps(&self) -> f32 { 1. / self.delta_time.as_secs_f32() }
+    #[must_use]
+    pub fn fps(&self) -> f32 { 1. / self.duration.as_secs_f32() }
 
+    #[must_use]
     fn now() -> std::time::Instant { std::time::Instant::now() }
 }

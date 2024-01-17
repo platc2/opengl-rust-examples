@@ -57,6 +57,7 @@ fn generate_mesh_data(max_level: u16, camera: &nalgebra_glm::Vec3, forward: Opti
 
     icosahedron.triangles
         .iter()
+/*
         .filter(|(a, b, c)| {
             if let Some(forward) = forward {
                 let x = nalgebra_glm::vec3(b.x - a.x, b.y - a.y, b.z - a.z).normalize();
@@ -67,6 +68,7 @@ fn generate_mesh_data(max_level: u16, camera: &nalgebra_glm::Vec3, forward: Opti
                 true
             }
         })
+ */
         .for_each(|(a, b, c)| recursive_triangle(&mut result, &camera, a, b, c, 0, max_level));
     result
 }

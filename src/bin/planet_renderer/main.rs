@@ -156,7 +156,7 @@ pub fn main() -> Result<()> {
         }
 
         let mut moved = false;
-        let speed = 0.0005f32;
+        let speed = time.duration().as_secs_f32();
         if key_codes[Keycode::W] {
             camera.move_forward(speed);
             moved = true;
@@ -266,6 +266,8 @@ pub fn main() -> Result<()> {
                     ui.slider("Max Level", 0, 10, &mut max_level);
                     ui.checkbox("Freeze camera", &mut freeze_camera);
                     ui.plot_lines(format!("FPS: {}", current_fps), fps.make_contiguous())
+                        .scale_min(0.)
+                        .scale_max(200.)
                         .build();
                     ui.columns(2, "col", false);
                     ui.text("Vertices");
