@@ -1,6 +1,6 @@
 use std::ffi::{CStr, CString};
 
-use gl::types::{GLchar, GLenum, GLint, GLuint};
+use gl::types::{GLenum, GLint, GLuint};
 use thiserror::Error;
 
 use crate::renderer::shader::Error::UnsupportedFileExtension;

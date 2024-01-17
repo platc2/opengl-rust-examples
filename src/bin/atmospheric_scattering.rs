@@ -11,7 +11,6 @@ use anyhow::{Result, Context};
 
 use gl::types::GLsizei;
 use imgui::SliderFlags;
-use imgui_display::ImGuiDisplay;
 
 use hello_triangle_rust::imgui_wrapper;
 use hello_triangle_rust::renderer::{

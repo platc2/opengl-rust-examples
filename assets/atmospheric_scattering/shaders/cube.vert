@@ -3,7 +3,7 @@
 
 layout (location = 0) in vec2 position;
 
-layout (location = 0) out SHADER_VARYING {
+out SHADER_VARYING {
     vec2 uv;
 };
 

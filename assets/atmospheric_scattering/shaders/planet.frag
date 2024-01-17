@@ -2,7 +2,7 @@
 #extension GL_ARB_shading_language_420pack : require
 
 
-layout (location = 0) in SHADER_VARYING {
+in SHADER_VARYING {
     vec2 uv;
 };
 

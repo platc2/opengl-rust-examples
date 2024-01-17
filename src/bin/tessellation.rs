@@ -29,7 +29,7 @@ fn main() -> Result<(), String> {
         &WindowDimension::default(),
         &OpenGLVersion::default(),
     )
-    .map_err(|e| format!("{e}"))?;
+        .map_err(|e| format!("{e}"))?;
 
     let res = Resources::from_relative_exe_path(Path::new("assets/tessellation"))
         .map_err(|e| format!("{e}"))?;
@@ -43,7 +43,7 @@ fn main() -> Result<(), String> {
         BufferUsage::Uniform,
         std::mem::size_of::<TessellationParameters>(),
     )
-    .map_err(|e| format!("{e}"))?;
+        .map_err(|e| format!("{e}"))?;
 
     let vertex_buffer = initialize_vertices()?;
 
@@ -52,25 +52,25 @@ fn main() -> Result<(), String> {
             .map_err(|e| format!("{e}"))?,
         ShaderKind::Vertex,
     )
-    .map_err(|e| format!("{e}"))?;
+        .map_err(|e| format!("{e}"))?;
     let fragment_shader = Shader::from_source(
         &res.load_string("/shaders/basic.frag")
             .map_err(|e| format!("{e}"))?,
         ShaderKind::Fragment,
     )
-    .map_err(|e| format!("{e}"))?;
+        .map_err(|e| format!("{e}"))?;
     let tessellation_control_shader = Shader::from_source(
         &res.load_string("/shaders/basic.tesc")
             .map_err(|e| format!("{e}"))?,
         ShaderKind::TessellationControl,
     )
-    .map_err(|e| format!("{e}"))?;
+        .map_err(|e| format!("{e}"))?;
     let tessellation_evaluation_shader = Shader::from_source(
         &res.load_string("/shaders/basic.tese")
             .map_err(|e| format!("{e}"))?,
         ShaderKind::TessellationEvaluation,
     )
-    .map_err(|e| format!("{e}"))?;
+        .map_err(|e| format!("{e}"))?;
 
     let vertex_bindings = [
         VertexBinding::new(
@@ -93,7 +93,7 @@ fn main() -> Result<(), String> {
         &[],
         &[],
     )
-    .map_err(|e| format!("{e}"))?;
+        .map_err(|e| format!("{e}"))?;
 
     let max_tessellation = std::cmp::min(gl::MAX_TESS_GEN_LEVEL, 64);
 
@@ -175,7 +175,7 @@ fn main() -> Result<(), String> {
             tessellation_parameters_buffer.unmap();
 
             gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::Viewport(0, 0, 900, 700);
+            gl::Viewport(0, 0, 700, 700);
             gl::BindVertexBuffer(
                 0,
                 vertex_buffer.handle(),
@@ -268,14 +268,18 @@ fn main() -> Result<(), String> {
 /// - Fail to initialize vertex buffer
 fn initialize_vertices() -> Result<Buffer, String> {
     let vertices = vec![
-        -0.5f32, -0.5f32, 1f32, 0f32, 0f32, 0.5f32, -0.5f32, 0f32, 1f32, 0f32, 0f32, 0.5f32, 0f32,
-        0f32, 1f32,
+        -0.5, -0.5,
+        1., 0., 0.,
+        0.5, -0.5,
+        0., 1., 0.,
+        0., -0.5 + (3f32.sqrt() / 2.),
+        0., 0., 1.,
     ];
     let mut vertex_buffer = Buffer::allocate(
         BufferUsage::Vertex,
         std::mem::size_of::<f32>() * vertices.len(),
     )
-    .map_err(|e| format!("{:?}", e))?;
+        .map_err(|e| format!("{:?}", e))?;
     let ptr = vertex_buffer.map::<f32>();
     ptr.copy_from_slice(&vertices);
     vertex_buffer.unmap();

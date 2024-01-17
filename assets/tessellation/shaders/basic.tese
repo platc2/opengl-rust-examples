@@ -1,4 +1,4 @@
-#version 420 core
+#version 430 core
 
 
 // layout (triangles, fractional_odd_spacing, ccw) in;
@@ -14,12 +14,13 @@ void main() {
     vec4 b_v = b + ((a - b) + (c - b)) / 2;
     vec4 c_w = c + ((a - c) + (b - c)) / 2;
 
+//    gl_Position = 0.5 * a_u * gl_TessCoord.x + b_v * gl_TessCoord.y + c_w * gl_TessCoord.z;
     gl_Position = a_u * gl_TessCoord.x + b_v * gl_TessCoord.y + c_w * gl_TessCoord.z;
 
-/*
-    const vec4 d = b - a;
-    const vec4 e = c - a;
+    /*
+        const vec4 d = b - a;
+        const vec4 e = c - a;
 
-    gl_Position = a + (gl_TessCoord.x * d) + (gl_TessCoord.y * e);
-*/
+        gl_Position = a + (gl_TessCoord.x * d) + (gl_TessCoord.y * e);
+    */
 }

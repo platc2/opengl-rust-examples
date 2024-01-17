@@ -155,6 +155,7 @@ impl Imgui {
             gl::UniformMatrix4fv(0, 1, gl::FALSE, nalgebra_glm::value_ptr(&ortho).as_ptr());
 
             gl::BindVertexArray(self.vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self._vbo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.element_buffer_object);
 
             gl::ActiveTexture(gl::TEXTURE0);
@@ -229,6 +230,8 @@ impl Imgui {
                     }
                 }
             }
+
+            gl::BindVertexArray(0);
 
             gl::Disable(gl::BLEND);
             gl::Enable(gl::CULL_FACE);
