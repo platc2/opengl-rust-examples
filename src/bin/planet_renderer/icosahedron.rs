@@ -39,7 +39,6 @@ pub fn triangles() -> Vec<glm::Vec3> {
         vertices[0], vertices[11], vertices[7],
         vertices[0], vertices[8], vertices[11],
         vertices[0], vertices[4], vertices[8],
-
         vertices[2], vertices[1], vertices[5],
         vertices[2], vertices[6], vertices[1],
         vertices[2], vertices[10], vertices[6],
@@ -53,7 +52,6 @@ pub fn triangles() -> Vec<glm::Vec3> {
         vertices[5], vertices[8], vertices[4],
         vertices[1], vertices[11], vertices[8],
         vertices[6], vertices[7], vertices[11],
-
         vertices[9], vertices[3], vertices[10],
         vertices[5], vertices[4], vertices[9],
         vertices[1], vertices[8], vertices[5],

@@ -6,6 +6,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use gl::types::{GLintptr, GLsizei};
+use nalgebra_glm as glm;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
 
@@ -17,7 +18,9 @@ use hello_triangle_rust::renderer_context::{OpenGLVersion, RendererContext, Wind
 use hello_triangle_rust::resources::Resources;
 
 use crate::camera::Camera;
+use crate::frustum::{Frustum, Plane};
 use crate::matrix_uniform::MatrixUniform;
+use crate::movable::Movable;
 use crate::planet::Planet;
 use crate::time::Time;
 
@@ -28,9 +31,11 @@ mod icosahedron;
 mod polyhedron;
 mod transform;
 mod time;
+mod movable;
+mod frustum;
 
 pub fn main() -> Result<()> {
-    let mut time = Time::new();
+    let mut time = Time::<std::time::Instant>::new();
 
     let window_dimension = WindowDimension::default();
     // Initialize render-context
@@ -46,13 +51,11 @@ pub fn main() -> Result<()> {
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<MatrixUniform>())?;
     let mut matrix_uniforms = MatrixUniform::default();
 
-    matrix_uniforms.model = nalgebra_glm::TMat4::identity();
-    matrix_uniforms.projection = nalgebra_glm::perspective(
-        window_dimension.width as f32 / window_dimension.height as f32,
-        60f32.to_radians(),
-        0.01f32,
-        100f32,
-    );
+    let mut fov: f32 = 60f32;
+    let mut near: f32 = 0.01;
+    let mut far: f32 = 100.;
+    let mut camera = camera::PerspectiveCamera::new(900. / 700., fov.to_radians(), near, far);
+    let mut camera2 = camera::PerspectiveCamera::new(900. / 700., 60f32.to_radians(), 0.01, 500.);
 
     let mut planet_mesh = Planet::new()
         .context("Failed to initialize planet mesh")?;
@@ -82,9 +85,6 @@ pub fn main() -> Result<()> {
         &[],
     )?;
 
-    let mut camera = Camera::default();
-    camera.move_up(1f32);
-
     let mut mouse_buttons = MouseButtons::default();
     let mut key_codes = KeyCodes::default();
     let mut mouse_pos = (0, 0);
@@ -102,12 +102,18 @@ pub fn main() -> Result<()> {
     let mut max_level = 0;
     let mut freeze_camera = false;
     let mut last_freeze_state = false;
-    let mut camera_pos: nalgebra_glm::Vec3 = camera.position();
-    let mut camera_forward: nalgebra_glm::Vec3 = camera.forward();
+    let mut camera_pos = *camera.transform_mut().position();
+    let mut camera_forward = *camera.transform_mut().forward();
+    let mut camera_transform = *camera.transform().transform();
+
+    let mut frustum_vbx = Buffer::allocate(BufferUsage::Vertex, std::mem::size_of::<glm::Vec3>() * 8)?;
+    let mut frustum_idx = Buffer::allocate(BufferUsage::Index, std::mem::size_of::<u16>() * 24)?;
 
     let fps_values = 1000;
     let mut fps = VecDeque::new();
     'main: loop {
+        camera.update();
+        camera2.update();
         time.update();
         for event in event_pump.poll_iter() {
             use sdl2::event::Event;
@@ -151,54 +157,83 @@ pub fn main() -> Result<()> {
         }
 
         if !freeze_camera {
-            camera_pos = camera.position();
-            camera_forward = camera.forward();
+            camera_pos = *camera.transform_mut().position();
+            camera_forward = *camera.transform_mut().forward();
+            camera_transform = *camera.transform().transform();
         }
 
         let mut moved = false;
         let speed = time.duration().as_secs_f32();
         if key_codes[Keycode::W] {
             camera.move_forward(speed);
+            camera2.move_forward(speed);
             moved = true;
         }
         if key_codes[Keycode::S] {
-            camera.move_forward(-speed);
+            camera.move_backward(speed);
+            camera2.move_backward(speed);
             moved = true;
         }
         if key_codes[Keycode::D] {
-            camera.move_right(speed);
+            camera.move_right(-speed);
+            camera2.move_right(-speed);
             moved = true;
         }
         if key_codes[Keycode::A] {
-            camera.move_right(-speed);
+            camera.move_left(-speed);
+            camera2.move_left(-speed);
             moved = true;
         }
         if key_codes[Keycode::Space] {
             camera.move_up(speed);
+            camera2.move_up(speed);
             moved = true;
         }
         if key_codes[Keycode::LCtrl] {
-            camera.move_up(-speed);
+            camera.move_down(speed);
+            camera2.move_down(speed);
             moved = true;
         }
         if key_codes[Keycode::Up] {
             camera.look_up(speed);
+            camera2.look_up(speed);
             moved = true;
         }
         if key_codes[Keycode::Down] {
-            camera.look_up(-speed);
+            camera.look_down(speed);
+            camera2.look_down(speed);
             moved = true;
         }
         if key_codes[Keycode::Right] {
             camera.look_right(speed);
+            camera2.look_right(speed);
             moved = true;
         }
         if key_codes[Keycode::Left] {
-            camera.look_right(-speed);
+            camera.look_left(speed);
+            camera2.look_left(speed);
+            moved = true;
+        }
+        if key_codes[Keycode::Q] {
+            camera.roll_ccw(speed);
+            camera2.roll_ccw(speed);
+            moved = true;
+        }
+        if key_codes[Keycode::E] {
+            camera.roll_cw(speed);
+            camera2.roll_cw(speed);
             moved = true;
         }
 
-        matrix_uniforms.view = camera.view_matrix();
+        matrix_uniforms.model = *planet_mesh.transform.transform();
+//        planet_mesh.look_left(0.1 * time.duration().as_secs_f32());
+        if freeze_camera {
+            matrix_uniforms.projection = *camera2.projection();
+            matrix_uniforms.view = *camera2.view();
+        } else {
+            matrix_uniforms.projection = *camera.projection();
+            matrix_uniforms.view = *camera.view();
+        }
 
         let matrix_uniforms_ptr = matrix_uniform_buffer.map::<MatrixUniform>();
         matrix_uniforms_ptr.copy_from_slice(&[matrix_uniforms]);
@@ -225,13 +260,12 @@ pub fn main() -> Result<()> {
 
             main_render_pass.display();
 
-            let distance = nalgebra_glm::length(&camera_pos);
             if (old_level != max_level || moved) {
                 planet_mesh.recalculate(max_level, &camera_pos, Some(&camera_forward));
                 old_level = max_level;
             }
 
-            gl::Disable(gl::CULL_FACE);
+            gl::Enable(gl::CULL_FACE);
             gl::Enable(gl::DEPTH_TEST);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Viewport(0, 0, 900, 700);
@@ -250,6 +284,51 @@ pub fn main() -> Result<()> {
             );
 
             gl::BindVertexBuffer(0, 0, 0, 0);
+        }
+
+        unsafe {
+            // Draw Frustum
+            let frustum = Frustum::from_perspective_camera(&camera);
+            let vertices = [
+                // Near
+                plane_intersection(&frustum.near_face, &frustum.top_face, &frustum.left_face),
+                plane_intersection(&frustum.near_face, &frustum.top_face, &frustum.right_face),
+                plane_intersection(&frustum.near_face, &frustum.bottom_face, &frustum.right_face),
+                plane_intersection(&frustum.near_face, &frustum.bottom_face, &frustum.left_face),
+
+                // Far
+                plane_intersection(&frustum.far_face, &frustum.top_face, &frustum.left_face),
+                plane_intersection(&frustum.far_face, &frustum.top_face, &frustum.right_face),
+                plane_intersection(&frustum.far_face, &frustum.bottom_face, &frustum.right_face),
+                plane_intersection(&frustum.far_face, &frustum.bottom_face, &frustum.left_face),
+            ];
+            let a = plane_intersection(&frustum.near_face, &frustum.top_face, &frustum.left_face);
+            let b = plane_intersection(&frustum.far_face, &frustum.top_face, &frustum.left_face);
+//            println!("{:?} - {:?}", a, b);
+            println!("{:?}, {:?}", frustum.near_face.position, frustum.far_face.position);
+//            println!("{:?}", vertices);
+            let indices: [u16; 24] = [
+                0, 1, 1, 2, 2, 3, 3, 0,
+                4, 5, 5, 6, 6, 7, 7, 4,
+                0, 4, 1, 5, 2, 6, 3, 7,
+            ];
+            {
+                let frustum_vbx_ptr = frustum_vbx.map();
+                let frustum_idx_ptr = frustum_idx.map();
+                frustum_vbx_ptr.copy_from_slice(&vertices[..]);
+                frustum_idx_ptr.copy_from_slice(&indices[..]);
+                frustum_vbx.unmap();
+                frustum_idx.unmap();
+            }
+
+            matrix_uniforms.model = camera_transform;
+            let matrix_uniforms_ptr = matrix_uniform_buffer.map::<MatrixUniform>();
+            matrix_uniforms_ptr.copy_from_slice(&[matrix_uniforms]);
+            matrix_uniform_buffer.unmap();
+
+            gl::BindVertexBuffer(0, frustum_vbx.handle(), 0 as GLintptr, GLsizei::try_from(std::mem::size_of::<f32>() * 3).unwrap());
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, frustum_idx.handle());
+            gl::DrawElements(gl::LINES, 24, gl::UNSIGNED_SHORT, std::ptr::null());
         }
 
         let current_fps = time.fps();
@@ -274,8 +353,49 @@ pub fn main() -> Result<()> {
                     ui.next_column();
                     ui.text_colored([1., 0.5, 0.5, 1.], format!("{}", planet_mesh.size));
                 });
+
+            ui.window("Camera Settings")
+                .save_settings(false)
+                .always_auto_resize(true)
+                .build(|| {
+                    if ui.slider("Field of view", 1f32.to_radians(), 179f32.to_radians(), &mut fov) {
+                        camera.set_fov(fov);
+                    }
+
+                    if ui.slider("Near", 0.001, 10., &mut near) {
+                        camera.set_near(near);
+                    }
+
+                    if ui.slider("Far", 0.001, 100., &mut far) {
+                        camera.set_far(far);
+                    }
+                });
         });
 
         context.window().gl_swap_window();
     }
+}
+
+fn plane_intersection(p1: &Plane, p2: &Plane, p3: &Plane) -> glm::Vec3 {
+    let m1 = glm::vec3(p1.normal.x, p2.normal.x, p3.normal.x);
+    let m2 = glm::vec3(p1.normal.y, p2.normal.y, p3.normal.y);
+    let m3 = glm::vec3(p1.normal.z, p2.normal.z, p3.normal.z);
+    let d = glm::vec3(
+        glm::dot(&p1.normal, &-p1.position),
+        glm::dot(&p2.normal, &-p2.position),
+        glm::dot(&p3.normal, &-p3.position));
+
+    let u = glm::cross(&m2, &m3);
+    let v = glm::cross(&m1, &d);
+
+    let denom = glm::dot(&m1, &u);
+    if (denom.abs() < 0.00005) {
+        panic!("UH OH!");
+    }
+
+    glm::vec3(
+        glm::dot(&d, &u) / denom,
+        glm::dot(&m3, &v) / denom,
+        -glm::dot(&m2, &v) / denom,
+    )
 }

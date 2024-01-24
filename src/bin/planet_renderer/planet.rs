@@ -3,12 +3,19 @@ use anyhow::Result;
 
 use hello_triangle_rust::renderer::{Buffer, BufferUsage};
 
+use crate::movable::Movable;
 use crate::polyhedron::Polyhedron;
+use crate::transform::Transform;
 
 pub struct Planet {
+    pub transform: Transform,
     pub vertex_buffer: Buffer,
     pub size: u32,
     icosahedron: Polyhedron,
+}
+
+impl Movable for Planet {
+    fn transform_mut(&mut self) -> &mut Transform { &mut self.transform }
 }
 
 impl Planet {
@@ -22,7 +29,8 @@ impl Planet {
             .context("Failed to initialize terrain mesh vertex buffer")?;
         upload_data(&mut vertex_buffer, &vertex_data[..]);
 
-        Ok(Self { vertex_buffer, size: vertex_data.len() as u32, icosahedron })
+        let transform = Transform::default();
+        Ok(Self { transform, vertex_buffer, size: vertex_data.len() as u32, icosahedron })
     }
 
     pub fn recalculate(&mut self, max_level: u16, camera: &nalgebra_glm::Vec3, forward: Option<&nalgebra_glm::Vec3>) {
@@ -57,18 +65,18 @@ fn generate_mesh_data(max_level: u16, camera: &nalgebra_glm::Vec3, forward: Opti
 
     icosahedron.triangles
         .iter()
-/*
-        .filter(|(a, b, c)| {
-            if let Some(forward) = forward {
-                let x = nalgebra_glm::vec3(b.x - a.x, b.y - a.y, b.z - a.z).normalize();
-                let y = nalgebra_glm::vec3(c.x - a.x, c.y - a.y, c.z - a.z).normalize();
-                let n = nalgebra_glm::cross(&x, &y).normalize();
-                nalgebra_glm::dot(forward, &n) >= 0.
-            } else {
-                true
-            }
-        })
- */
+        /*
+                .filter(|(a, b, c)| {
+                    if let Some(forward) = forward {
+                        let x = nalgebra_glm::vec3(b.x - a.x, b.y - a.y, b.z - a.z).normalize();
+                        let y = nalgebra_glm::vec3(c.x - a.x, c.y - a.y, c.z - a.z).normalize();
+                        let n = nalgebra_glm::cross(&x, &y).normalize();
+                        nalgebra_glm::dot(forward, &n) >= 0.
+                    } else {
+                        true
+                    }
+                })
+         */
         .for_each(|(a, b, c)| recursive_triangle(&mut result, &camera, a, b, c, 0, max_level));
     result
 }
