@@ -1,0 +1,19 @@
+[package]
+name = "bruteforce_terrain"
+description = "Example application showing procedural, infinite bruteforce terrain"
+repository = "https://github.com/platc2/opengl-rust"
+keywords = ["OpenGL", "Rust"]
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+walkdir.workspace = true
+
+[dependencies]
+sdl2.workspace = true
+gl_bindings.workspace = true
+renderer.workspace = true
+anyhow.workspace = true
+imgui.workspace = true
+noise.workspace = true
+nalgebra-glm.workspace = true

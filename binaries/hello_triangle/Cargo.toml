@@ -1,0 +1,16 @@
+[package]
+name = "hello_triangle"
+description = "Hello Triangle example application"
+repository = "https://github.com/platc2/opengl-rust"
+keywords = ["OpenGL", "Rust"]
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+walkdir.workspace = true
+
+[dependencies]
+sdl2.workspace = true
+gl_bindings.workspace = true
+renderer.workspace = true
+anyhow.workspace = true

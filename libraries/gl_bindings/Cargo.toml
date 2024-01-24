@@ -1,0 +1,10 @@
+[package]
+name = "gl_bindings"
+description = "Helper library to create OpenGL bindings"
+repository = "https://github.com/platc2/opengl-rust"
+keywords = ["OpenGL", "Rust"]
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+gl_generator = "0.14.0"
