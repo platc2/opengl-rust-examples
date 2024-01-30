@@ -1,9 +1,10 @@
 use std::ffi::c_void;
 
-use gl_bindings as gl;
-use sdl2::video::{GLContext, GLProfile, Window, WindowBuildError};
 use sdl2::Sdl;
+use sdl2::video::{GLContext, GLProfile, Window, WindowBuildError};
 use thiserror::Error;
+
+use gl_bindings as gl;
 
 use crate::renderer_context::Error::{ContextInit, SdlInit, VideoSubsystemInit, WindowTooLarge};
 

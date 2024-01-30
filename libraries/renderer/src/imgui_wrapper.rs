@@ -1,9 +1,12 @@
 use std::any::Any;
+use std::collections::HashMap;
 use std::ffi::c_void;
+use std::time::Duration;
 
 use imgui::{BackendFlags, FontAtlas, TextureId};
 
 use gl::types::{GLint, GLsizei, GLuint};
+use crate::input_manager::Key;
 
 use crate::renderer::{Program, Shader, ShaderKind, Texture};
 
@@ -85,20 +88,27 @@ impl Imgui {
         window_dimension: WindowDimension,
         mouse_pos: MousePos,
         mouse_button_state: MouseButtonState,
-        chars: &mut Vec<char>,
+        key_changes: &HashMap<Key, bool>,
+        text_input: &Vec<String>,
+        delta: Duration,
     ) {
         let io = self.context.io_mut();
         io.display_size = window_dimension;
-        io.delta_time = 1f32 / 60f32;
+        io.delta_time = delta.as_secs_f32();
 
         io.mouse_pos = mouse_pos;
         io.mouse_down[0] = mouse_button_state[0];
         io.mouse_down[1] = mouse_button_state[1];
 
-        for char in chars.iter() {
-            io.add_input_character(*char);
+        for (key, state) in key_changes.into_iter() {
+            io.add_key_event(key.imgui, *state);
         }
-        chars.truncate(0);
+
+        for text in text_input {
+            for char in text.chars() {
+                io.add_input_character(char);
+            }
+        }
     }
 
     /// # Panics

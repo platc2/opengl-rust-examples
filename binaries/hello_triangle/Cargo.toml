@@ -14,3 +14,4 @@ sdl2.workspace = true
 gl_bindings.workspace = true
 renderer.workspace = true
 anyhow.workspace = true
+imgui.workspace = true
