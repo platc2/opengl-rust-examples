@@ -85,15 +85,16 @@ macro_rules! generate_key_expressions {
 
 impl Key {
     const fn new(imgui: ImguiKey, sdl: SdlKey) -> Self { Self { imgui, sdl } }
+
+    // Generate key definitions for Mod-Keys
+    generate_key_definitions!(
+        MOD_CONTROL -> (ModCtrl, LCtrl),
+        MOD_SHIFT -> (ModShift, LShift),
+        MOD_ALT -> (ModAlt, LAlt)
+    );
 }
 
 generate_key_expressions!(
-    MOD_CONTROL -> (ModCtrl, LCtrl),
-    MOD_SHIFT -> (ModShift, LShift),
-    MOD_ALT -> (ModAlt, LAlt),
-//    ModSuper = sys::ImGuiMod_Super,
-//    ModShortcut = sys::ImGuiMod_Shortcut,
-
     A -> A,
     B -> B,
     C -> C,

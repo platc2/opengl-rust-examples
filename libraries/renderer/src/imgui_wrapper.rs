@@ -6,8 +6,8 @@ use std::time::Duration;
 use imgui::{BackendFlags, FontAtlas, TextureId};
 
 use gl::types::{GLint, GLsizei, GLuint};
-use crate::input_manager::Key;
 
+use crate::input_manager::Key;
 use crate::renderer::{Program, Shader, ShaderKind, Texture};
 
 const IMGUI_VERTEX_SHADER_SOURCE: &str = include_str!("imgui.vert");
@@ -17,7 +17,7 @@ pub struct Imgui {
     context: imgui::Context,
     program: Program,
     vao: GLuint,
-    _vbo: GLuint,
+    vbo: GLuint,
     element_buffer_object: GLuint,
 }
 
@@ -78,7 +78,7 @@ impl Imgui {
             context,
             program,
             vao,
-            _vbo: vertex_buffer_object,
+            vbo: vertex_buffer_object,
             element_buffer_object,
         }
     }
@@ -100,7 +100,7 @@ impl Imgui {
         io.mouse_down[0] = mouse_button_state[0];
         io.mouse_down[1] = mouse_button_state[1];
 
-        for (key, state) in key_changes.into_iter() {
+        for (key, state) in key_changes {
             io.add_key_event(key.imgui, *state);
         }
 
@@ -166,7 +166,7 @@ impl Imgui {
             gl::UniformMatrix4fv(0, 1, gl::FALSE, nalgebra_glm::value_ptr(&ortho).as_ptr());
 
             gl::BindVertexArray(self.vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self._vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.element_buffer_object);
 
             gl::ActiveTexture(gl::TEXTURE0);
@@ -175,18 +175,14 @@ impl Imgui {
                 let idx_buffer = draw_list.idx_buffer();
                 gl::BufferData(
                     gl::ARRAY_BUFFER,
-                    gl::types::GLsizeiptr::try_from(
-                        std::mem::size_of::<imgui::DrawVert>() * vtx_buffer.len(),
-                    )
+                    gl::types::GLsizeiptr::try_from(std::mem::size_of_val(vtx_buffer))
                         .unwrap_unchecked(),
                     vtx_buffer.as_ptr().cast(),
                     gl::STREAM_DRAW,
                 );
                 gl::BufferData(
                     gl::ELEMENT_ARRAY_BUFFER,
-                    gl::types::GLsizeiptr::try_from(
-                        std::mem::size_of::<imgui::DrawIdx>() * idx_buffer.len(),
-                    )
+                    gl::types::GLsizeiptr::try_from(std::mem::size_of_val(idx_buffer))
                         .unwrap_unchecked(),
                     idx_buffer.as_ptr().cast(),
                     gl::STREAM_DRAW,

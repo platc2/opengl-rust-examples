@@ -20,8 +20,8 @@ pub trait Application {
     fn quit(&self) -> bool { false }
 }
 
-pub fn main_loop<T: Application>(mut context: RendererContext, mut application: T) -> Result<()> {
-    let mut time = Time::<std::time::Instant>::new();
+pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -> Result<()> {
+    let mut time: Time<std::time::Instant> = Time::default();
     let mut event_pump = context.sdl().event_pump()
         .map_err(|e| anyhow!(e))?;
     let mut imgui_context = Imgui::init();

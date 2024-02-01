@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
 extern crate gl_bindings as gl;
 extern crate imgui;
 extern crate nalgebra_glm as glm;

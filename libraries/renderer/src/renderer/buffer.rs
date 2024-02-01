@@ -99,7 +99,7 @@ impl Buffer {
 impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe {
-//            gl_bindings::DeleteBuffers(1, &self.handle);
+            gl_bindings::DeleteBuffers(1, &self.handle);
         }
     }
 }

@@ -1,10 +1,21 @@
-use std::time::{Duration, Instant, SystemTime};
+use core::time::Duration;
+use std::time::{Instant, SystemTime};
 
 #[derive(Debug)]
 pub struct Time<T> {
     start: T,
     last: T,
     duration: Duration,
+}
+
+pub trait Now {
+    fn now() -> Self;
+}
+
+impl Now for std::time::Instant {
+    fn now() -> Self {
+        Self::now()
+    }
 }
 
 pub trait TimeNow {
@@ -30,13 +41,14 @@ impl TimeNow for SystemTime {
     }
 }
 
-impl<T: TimeNow + Copy> Time<T> {
-    #[must_use]
-    pub fn new() -> Self {
+impl<T: TimeNow + Copy> Default for Time<T> {
+    fn default() -> Self {
         let now = T::time_now();
         Self { start: now, last: now, duration: Duration::default() }
     }
+}
 
+impl<T: TimeNow + Copy> Time<T> {
     pub fn update(&mut self) {
         let end = T::time_now();
         self.duration = end.duration_since(self.last)
@@ -44,15 +56,13 @@ impl<T: TimeNow + Copy> Time<T> {
         self.last = end;
     }
 
-    #[must_use]
-    pub fn get_duration(&self) -> Duration {
+    pub fn duration_since_start(&self) -> Duration {
         let end = T::time_now();
         end.duration_since(self.start)
             .expect("Has time been running backwards?")
     }
 
-    #[must_use]
-    pub fn duration(&self) -> Duration { self.duration }
+    pub const fn duration(&self) -> Duration { self.duration }
 
     #[must_use]
     pub fn fps(&self) -> f32 { 1. / self.duration.as_secs_f32() }
