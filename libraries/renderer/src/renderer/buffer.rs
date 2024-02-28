@@ -1,14 +1,19 @@
-use gl::types::{GLenum, GLsizeiptr, GLuint};
 use thiserror::Error;
 
-use crate::renderer::buffer::Error::TooLarge;
+use ::gl::sys::RawHandle;
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Buffer too large")]
     TooLarge,
 }
+
 type Result<T> = std::result::Result<T, Error>;
+
+mod gl {
+    pub use gl::buffer::*;
+    pub use gl::sys;
+}
 
 #[derive(Copy, Clone)]
 pub enum Usage {
@@ -17,11 +22,9 @@ pub enum Usage {
     Uniform,
 }
 
-const UNIFORM_BUFFER_FLAGS: GLenum = gl::MAP_PERSISTENT_BIT | gl::MAP_COHERENT_BIT;
-
 pub struct Buffer {
-    handle: GLuint,
-    target: GLenum,
+    id: gl::BufferId,
+    target: gl::BufferTarget,
 
     size: usize,
     usage: Usage,
@@ -32,31 +35,22 @@ impl Buffer {
     /// - Allocated buffer size too large
     pub fn allocate(usage: Usage, size: usize) -> Result<Self> {
         let target = match usage {
-            Usage::Vertex => gl::ARRAY_BUFFER,
-            Usage::Index => gl::ELEMENT_ARRAY_BUFFER,
-            Usage::Uniform => gl::UNIFORM_BUFFER,
+            Usage::Vertex => gl::BufferTarget::ARRAY_BUFFER,
+            Usage::Index => gl::BufferTarget::ELEMENT_ARRAY_BUFFER,
+            Usage::Uniform => gl::BufferTarget::UNIFORM_BUFFER,
         };
 
         let bit_flags = match usage {
-            Usage::Vertex | Usage::Index => 0,
-            Usage::Uniform => UNIFORM_BUFFER_FLAGS,
+            Usage::Vertex | Usage::Index => gl::StorageFlags::NO_FLAGS,
+            Usage::Uniform => gl::StorageFlags::MAP_COHERENT_BIT | gl::StorageFlags::MAP_PERSISTENT_BIT,
         };
 
-        let mut handle: GLuint = 0;
-        let gl_size = GLsizeiptr::try_from(size).map_err(|_| TooLarge)?;
-        unsafe {
-            gl::CreateBuffers(1, &mut handle);
-            gl::BindBuffer(target, handle);
-            gl::BufferStorage(
-                target,
-                gl_size,
-                std::ptr::null(),
-                gl::MAP_WRITE_BIT | bit_flags,
-            );
-        }
+        let id = gl::create_buffer();
+        gl::bind_buffer(target, id);
+        gl::buffer_storage_empty(target, size, gl::StorageFlags::MAP_WRITE_BIT | bit_flags);
 
         Ok(Self {
-            handle,
+            id,
             target,
             size,
             usage,
@@ -64,8 +58,8 @@ impl Buffer {
     }
 
     #[must_use]
-    pub const fn handle(&self) -> GLuint {
-        self.handle
+    pub fn handle(&self) -> gl::sys::types::GLuint {
+        unsafe { self.id.raw_handle() }
     }
 
     #[must_use]
@@ -79,27 +73,25 @@ impl Buffer {
     }
 
     pub fn map<Type>(&mut self) -> &mut [Type]
-    where
-        Type: Sized,
+        where
+            Type: Sized,
     {
+        gl::bind_buffer(self.target, self.id);
         unsafe {
-            gl::BindBuffer(self.target, self.handle);
-            let memory_pointer = gl::MapBuffer(self.target, gl::WRITE_ONLY).cast::<Type>();
+            let memory_pointer = gl::sys::MapBuffer(self.target.raw_handle(), gl::sys::WRITE_ONLY).cast::<Type>();
             std::slice::from_raw_parts_mut(memory_pointer, self.size / std::mem::size_of::<Type>())
         }
     }
 
     pub fn unmap(&self) {
         unsafe {
-            gl::UnmapBuffer(self.target);
+            gl::sys::UnmapBuffer(self.target.raw_handle());
         }
     }
 }
 
 impl Drop for Buffer {
     fn drop(&mut self) {
-        unsafe {
-            gl_bindings::DeleteBuffers(1, &self.handle);
-        }
+        gl::delete_buffer(&mut self.id);
     }
 }

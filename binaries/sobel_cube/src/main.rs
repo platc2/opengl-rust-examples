@@ -1,29 +1,28 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 #![allow(clippy::must_use_candidate)]
+
 extern crate alloc;
 extern crate core;
 extern crate gl_bindings as gl;
 extern crate nalgebra_glm as glm;
 extern crate sdl2;
 
-use alloc::borrow::Cow;
-use std::f32::consts::PI;
 use std::path::Path;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 
-use gl::types::{GLfloat, GLintptr, GLsizei};
-use renderer::{
-    Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding,
-};
-use renderer::imgui_wrapper;
+use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
+
+use crate::state::State;
+
+mod state;
 
 type Mat3 = nalgebra_glm::TMat3<f32>;
 type Vec3 = nalgebra_glm::TVec3<f32>;
 
-struct KernelMatrix {
+pub struct KernelMatrix {
     pub label: String,
     pub matrix: Mat3,
 }
@@ -40,8 +39,8 @@ fn main() -> Result<()> {
     )?;
 
     unsafe {
-        gl::Enable(gl::DEBUG_OUTPUT);
-        gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
+        gl::sys::Enable(gl::sys::DEBUG_OUTPUT);
+        gl::sys::Enable(gl::sys::DEBUG_OUTPUT_SYNCHRONOUS);
     }
 
     let res = Resources::from_relative_exe_path(Path::new("assets"))?;
@@ -58,12 +57,12 @@ fn main() -> Result<()> {
     )
         .context("Failed to initialize basic fragment shader")?;
 
-    let mut matrix_buffer =
+    let matrix_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat4>() * 2)?;
-    let mut texture_switch_buffer =
+    let texture_switch_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<f32>())?;
-    let mut light_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Vec3>())?;
-    let mut kernel_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat3>())?;
+    let light_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Vec3>())?;
+    let kernel_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat3>())?;
 
     let vertex_bindings = [
         VertexBinding::new(
@@ -122,41 +121,21 @@ fn main() -> Result<()> {
         &[],
     )?;
 
-    let projection = nalgebra_glm::perspective(1f32, PI / 3f32, 0.001f32, 100f32);
-    let view = nalgebra_glm::look_at(
-        &nalgebra_glm::vec3(0f32, 0f32, 4f32),
-        &nalgebra_glm::vec3(0f32, 0f32, 0f32),
-        &nalgebra_glm::vec3(0f32, 1f32, 0f32),
-    );
-
     unsafe {
-        gl::Enable(gl::DEPTH_TEST);
-        gl::DepthFunc(gl::LESS);
+        gl::sys::Enable(gl::sys::DEPTH_TEST);
+        gl::sys::DepthFunc(gl::sys::LESS);
     }
 
-    let mut mouse_pos = (0, 0);
-    let mut mouse_left = false;
-    let mut mouse_right = false;
-
-    let mut angle = 0f32;
-    let mut event_pump = context.sdl().event_pump().map_err(|e| anyhow!(e))?;
-
-    let mut imgui = imgui_wrapper::Imgui::init();
 
     unsafe {
-        gl::Enable(gl::CULL_FACE);
-        gl::FrontFace(gl::CCW);
-        gl::CullFace(gl::BACK);
+        gl::sys::Enable(gl::sys::CULL_FACE);
+        gl::sys::FrontFace(gl::sys::CCW);
+        gl::sys::CullFace(gl::sys::BACK);
 
-        gl::Enable(gl::DEPTH_TEST);
-        gl::DepthFunc(gl::LEQUAL);
+        gl::sys::Enable(gl::sys::DEPTH_TEST);
+        gl::sys::DepthFunc(gl::sys::LEQUAL);
     }
 
-    let mut delta = 1f32;
-    let mut texture_fraction = 0f32;
-    let mut light_color = Vec3::new(1f32, 1f32, 0f32);
-    let mut rotate = false;
-    let mut chars: Vec<char> = Vec::new();
     let matrices = [
         KernelMatrix {
             label: String::from("Identity"),
@@ -201,162 +180,22 @@ fn main() -> Result<()> {
             ),
         },
     ];
-    let mut matrix_index = 0;
 
-    'main: loop {
-        for event in event_pump.poll_iter() {
-            use sdl2::event::Event;
-            use sdl2::keyboard::Keycode;
-            use sdl2::mouse::MouseButton;
-            match event {
-                Event::MouseMotion { x, y, .. } => {
-                    mouse_pos = (
-                        // This is ok - Mouse coordinates shouldn't reach numbers which overflow 16bit
-                        i16::try_from(x).unwrap_or(0),
-                        i16::try_from(y).unwrap_or(0),
-                    );
-                }
-                Event::MouseButtonDown {
-                    mouse_btn: MouseButton::Left,
-                    ..
-                } => mouse_left = true,
-                Event::MouseButtonUp {
-                    mouse_btn: MouseButton::Left,
-                    ..
-                } => mouse_left = false,
-                Event::MouseButtonDown {
-                    mouse_btn: MouseButton::Right,
-                    ..
-                } => mouse_right = true,
-                Event::MouseButtonUp {
-                    mouse_btn: MouseButton::Right,
-                    ..
-                } => mouse_right = false,
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'main Ok(()),
-                Event::KeyDown {
-                    keycode: Some(key_code),
-                    ..
-                } => {
-                    let key_code = key_code as u32;
-                    if (32..512).contains(&key_code) {
-                        chars.push(char::from_u32(key_code).unwrap());
-                    }
-                }
-                _ => {}
-            }
-        }
+    let state = State::new(
+        Vec::from(matrices),
+        matrix_buffer,
+        kernel_buffer,
+        texture_switch_buffer,
+        light_buffer,
+        vertex_buffer,
+        index_buffer,
+        cube_vertices,
+        render_texture,
+        main_render_pass,
+        cube_render_pass,
+    );
 
-        angle += 0.005f32;
-        let view_projection = projection * view;
-        let model = nalgebra_glm::rotation(angle, &nalgebra_glm::vec3(1.5f32, 1f32, 0.5f32));
-        let matrix_ptr = matrix_buffer.map::<Mat4>();
-        matrix_ptr.copy_from_slice(&[model, view_projection]);
-        matrix_buffer.unmap();
-
-        let texture_switch_ptr = texture_switch_buffer.map::<f32>();
-        texture_switch_ptr.copy_from_slice(&[texture_fraction]);
-        texture_switch_buffer.unmap();
-
-        let kernel_ptr = kernel_buffer.map::<Mat3>();
-        kernel_ptr.copy_from_slice(&[matrices[matrix_index].matrix]);
-        kernel_buffer.unmap();
-
-        let light_ptr = light_buffer.map::<Vec3>();
-        light_ptr.copy_from_slice(&[light_color]);
-        light_buffer.unmap();
-
-        if rotate {
-            texture_fraction = 0.0025f32.mul_add(delta, texture_fraction);
-            let new = texture_fraction.clamp(0f32, 1f32);
-            if (texture_fraction - new).abs() > 1e-9 {
-                delta = -delta;
-            }
-            texture_fraction = new;
-        }
-
-        unsafe {
-            imgui.prepare(
-                [900f32, 700f32],
-                [mouse_pos.0.into(), mouse_pos.1.into()],
-                [mouse_left, mouse_right],
-                &mut chars,
-            );
-
-            main_render_pass.display();
-            clear_screen(0.3, 0.3, 0.5);
-            clear_screen(0.0, 0.0, 0.0);
-            gl::Viewport(
-                0,
-                0,
-                GLsizei::try_from(render_texture.width()).unwrap_unchecked(),
-                GLsizei::try_from(render_texture.height()).unwrap_unchecked(),
-            );
-            gl::Enable(gl::DEPTH_TEST);
-            gl::DepthFunc(gl::LEQUAL);
-
-            gl::BindVertexBuffer(
-                0,
-                vertex_buffer.handle(),
-                0 as GLintptr,
-                GLsizei::try_from(std::mem::size_of::<f32>() * 3).unwrap(),
-            );
-            gl::BindVertexBuffer(
-                1,
-                vertex_buffer.handle(),
-                GLintptr::try_from(std::mem::size_of::<f32>() * 72).unwrap(),
-                GLsizei::try_from(std::mem::size_of::<f32>() * 2).unwrap(),
-            );
-            gl::BindVertexBuffer(
-                2,
-                vertex_buffer.handle(),
-                GLintptr::try_from(std::mem::size_of::<f32>() * 120).unwrap(),
-                GLsizei::try_from(std::mem::size_of::<f32>() * 3).unwrap(),
-            );
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, index_buffer.handle());
-            let count =
-                GLsizei::try_from(index_buffer.size() / std::mem::size_of::<u16>()).unwrap();
-            gl::DrawElements(gl::TRIANGLES, count, gl::UNSIGNED_SHORT, std::ptr::null());
-
-            cube_render_pass.display();
-            gl::Disable(gl::DEPTH_TEST);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::Viewport(0, 0, 900, 700);
-            gl::BindVertexBuffer(
-                0,
-                cube_vertices.handle(),
-                0 as GLintptr,
-                GLsizei::try_from(std::mem::size_of::<f32>() * 2).unwrap(),
-            );
-            gl::BindVertexBuffer(
-                1,
-                cube_vertices.handle(),
-                GLintptr::try_from(std::mem::size_of::<f32>() * 12).unwrap(),
-                GLsizei::try_from(std::mem::size_of::<f32>() * 2).unwrap(),
-            );
-            gl::DrawArrays(gl::TRIANGLES, 0, 6);
-
-            imgui.render(|ui| {
-                ui.window("Settings")
-                    .save_settings(false)
-                    .always_auto_resize(true)
-                    .build(|| {
-                        ui.slider("Texture Switch", 0f32, 1f32, &mut texture_fraction);
-                        ui.same_line();
-                        ui.checkbox("Cycle", &mut rotate);
-                        ui.combo("Kernel", &mut matrix_index, &matrices, |kernel_matrix| {
-                            Cow::from(&kernel_matrix.label)
-                        });
-                        ui.input_float3("Light", light_color.as_mut()).build();
-                    });
-            });
-        }
-
-        context.window().gl_swap_window();
-    }
+    application::main_loop(context, state)
 }
 
 /// # Errors
@@ -446,16 +285,4 @@ pub fn initialize_indices() -> Result<Buffer> {
     ptr.copy_from_slice(&indices);
     index_buffer.unmap();
     Ok(index_buffer)
-}
-
-fn clear_screen(red: f32, green: f32, blue: f32) {
-    unsafe {
-        gl::ClearColor(
-            red as GLfloat,
-            green as GLfloat,
-            blue as GLfloat,
-            1f32 as GLfloat,
-        );
-        gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-    }
 }

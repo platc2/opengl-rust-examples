@@ -15,3 +15,4 @@ gl_bindings.workspace = true
 renderer.workspace = true
 anyhow.workspace = true
 nalgebra-glm.workspace = true
+imgui.workspace = true

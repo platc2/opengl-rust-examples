@@ -1,26 +1,25 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 #![allow(clippy::must_use_candidate)]
+
 extern crate alloc;
 extern crate core;
 extern crate gl_bindings as gl;
 extern crate imgui;
 extern crate sdl2;
 
-
 use core::fmt::{Display, Formatter};
 use std::path::Path;
 
 use anyhow::{Context, Result};
 
-use gl::types::GLsizei;
-use imgui::SliderFlags;
-use renderer::{
-    Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute,
-    VertexAttributeFormat, VertexBinding,
-};
-use renderer::imgui_wrapper;
+use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeFormat, VertexBinding};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
+
+use crate::state::State;
+
+mod state;
+
 
 #[derive(Default)]
 struct WGS84Coordinate {
@@ -106,23 +105,11 @@ fn main() -> Result<()> {
     vertex_ptr.copy_from_slice(&vertices);
     vertex_buffer.unmap();
 
-    let mut camera_settings = CameraSettings::default();
-    let mut camera_settings_buffer =
+    let camera_settings_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<CameraSettings>())
             .context("Failed to allocate camera settings buffer")?;
 
-    let mut world_settings = WorldSettings {
-        time: 0f32,
-        planet_radius: 6731e3,
-        atmosphere_height: 50e3,
-        inscatter_points: 10,
-        optical_depth_points: 10,
-        g: 0.99,
-        intensity: 1f32,
-        rayleigh_scale_height: 7700f32,
-        mie_scale_height: 1200f32,
-    };
-    let mut world_settings_buffer =
+    let world_settings_buffer =
         Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<WorldSettings>())
             .context("Failed to allocate world settings buffer")?;
 
@@ -170,269 +157,13 @@ fn main() -> Result<()> {
     )
         .context("Failed to initialize render pass")?;
 
-    let mut position = Position {
-        altitude: 1f32,
-        ..Position::default()
-    };
-    let mut speed = 0.05f32;
+    let state = State::new(
+        world_settings_buffer,
+        camera_settings_buffer,
+        planet_render_pass,
+        render_pass,
+        vertex_buffer,
+    );
 
-    let mut mouse_pos = (0, 0);
-    let mut mouse_left = false;
-    let mut mouse_right = false;
-    let mut up = false;
-    let mut down = false;
-    let mut left = false;
-    let mut right = false;
-    let mut forward = false;
-    let mut backward = false;
-
-    let mut move_time = true;
-
-    let mut event_pump = context
-        .sdl()
-        .event_pump()
-        .expect("Failed to get event pump");
-
-    let mut chars: Vec<char> = Vec::new();
-
-    let mut imgui = imgui_wrapper::Imgui::init();
-
-    'main: loop {
-        for event in event_pump.poll_iter() {
-            use sdl2::event::Event;
-            use sdl2::keyboard::Keycode;
-            use sdl2::mouse::MouseButton;
-            match event {
-                Event::MouseMotion { x, y, .. } => {
-                    mouse_pos = (
-                        // This is ok - Mouse coordinates shouldn't reach numbers which overflow 16bit
-                        i16::try_from(x).unwrap_or(0),
-                        i16::try_from(y).unwrap_or(0),
-                    )
-                }
-                Event::MouseButtonDown {
-                    mouse_btn: MouseButton::Left,
-                    ..
-                } => mouse_left = true,
-                Event::MouseButtonUp {
-                    mouse_btn: MouseButton::Left,
-                    ..
-                } => mouse_left = false,
-                Event::MouseButtonDown {
-                    mouse_btn: MouseButton::Right,
-                    ..
-                } => mouse_right = true,
-                Event::MouseButtonUp {
-                    mouse_btn: MouseButton::Right,
-                    ..
-                } => mouse_right = false,
-                Event::KeyDown {
-                    keycode: Some(Keycode::LCtrl),
-                    ..
-                } => down = true,
-                Event::KeyUp {
-                    keycode: Some(Keycode::LCtrl),
-                    ..
-                } => down = false,
-                Event::KeyDown {
-                    keycode: Some(Keycode::LShift),
-                    ..
-                } => up = true,
-                Event::KeyUp {
-                    keycode: Some(Keycode::LShift),
-                    ..
-                } => up = false,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Left),
-                    ..
-                } => left = true,
-                Event::KeyUp {
-                    keycode: Some(Keycode::Left),
-                    ..
-                } => left = false,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Right),
-                    ..
-                } => right = true,
-                Event::KeyUp {
-                    keycode: Some(Keycode::Right),
-                    ..
-                } => right = false,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Up),
-                    ..
-                } => forward = true,
-                Event::KeyUp {
-                    keycode: Some(Keycode::Up),
-                    ..
-                } => forward = false,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Down),
-                    ..
-                } => backward = true,
-                Event::KeyUp {
-                    keycode: Some(Keycode::Down),
-                    ..
-                } => backward = false,
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'main Ok(()),
-                Event::KeyDown {
-                    keycode: Some(key_code),
-                    ..
-                } => {
-                    let key_code = key_code as u32;
-                    if (32..512).contains(&key_code) {
-                        chars.push(char::from_u32(key_code).unwrap());
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        imgui.prepare(
-            [
-                window_dimension.width as f32,
-                window_dimension.height as f32,
-            ],
-            [mouse_pos.0.into(), mouse_pos.1.into()],
-            [mouse_left, mouse_right],
-            &mut chars,
-        );
-
-        // Movement handling
-        let delta_altitude = f32::from(u8::from(up ^ down)) * if up { speed } else { -speed } * 5e3;
-        position.altitude =
-            (position.altitude + delta_altitude).clamp(1f32, world_settings.planet_radius * 20f32);
-
-        let delta_bearing = f32::from(u8::from(left ^ right)) * if right { speed } else { -speed };
-        position.bearing = (position.bearing + delta_bearing).rem_euclid(360f32);
-
-        let delta_speed = f32::from(u8::from(forward ^ backward))
-            * if forward { speed } else { -speed }
-            * 0.05f32;
-        position.pos.offset(
-            delta_speed * position.bearing.to_radians().cos(),
-            delta_speed * position.bearing.to_radians().sin(),
-        );
-
-        camera_settings.position.y = world_settings.planet_radius + position.altitude;
-        camera_settings.position.z = position.altitude * 1e2;
-        if move_time {
-            const SPEED: f32 = 0.1f32;
-            world_settings.time = (world_settings.time + 0.001f32 * SPEED) % 1f32;
-        }
-
-        let camera_settings_ptr = camera_settings_buffer.map();
-        camera_settings_ptr.copy_from_slice(&[camera_settings]);
-        camera_settings_buffer.unmap();
-
-        let world_settings_ptr = world_settings_buffer.map();
-        world_settings_ptr.copy_from_slice(&[world_settings]);
-        world_settings_buffer.unmap();
-
-        planet_render_pass.display();
-        render_cube(&vertex_buffer);
-
-        render_pass.display();
-        render_cube(&vertex_buffer);
-
-        imgui.render(|ui| {
-            ui.window("Settings")
-                .no_decoration()
-                .movable(false)
-                .save_settings(false)
-                .always_auto_resize(true)
-                .build(|| {
-                    ui.text(format!("Position: {}", position.pos));
-                    ui.text(format!("Altitude: {:.0}km", position.altitude / 1e3));
-                    ui.text(format!(
-                        "Bearing: {:6.2}° ({})",
-                        position.bearing,
-                        bearing_char(position.bearing)
-                    ));
-                    ui.separator();
-                    ui.separator();
-                    ui.slider_config("Movement speed", 0.1f32, 1f32)
-                        .flags(SliderFlags::LOGARITHMIC)
-                        .build(&mut speed);
-                });
-
-            ui.window("World Settings")
-                .save_settings(false)
-                .always_auto_resize(true)
-                .build(|| {
-                    ui.slider("Time", 0f32, 1f32, &mut world_settings.time);
-                    ui.same_line();
-                    ui.checkbox("## Move time", &mut move_time);
-                    ui.slider_config("Planet radius", 1e6, 7e6)
-                        .display_format(format!("{:.0}km", world_settings.planet_radius / 1e3))
-                        .build(&mut world_settings.planet_radius);
-                    ui.slider_config("Atmosphere height", 0f32, 1e6)
-                        .display_format(format!(
-                            "{:.0}km (Total {:.0}km)",
-                            world_settings.atmosphere_height / 1e3,
-                            (world_settings.planet_radius + world_settings.atmosphere_height) / 1e3
-                        ))
-                        .build(&mut world_settings.atmosphere_height);
-                    ui.slider(
-                        "Inscatter sample points",
-                        1u32,
-                        16u32,
-                        &mut world_settings.inscatter_points,
-                    );
-                    ui.slider(
-                        "Optical-depth sample points",
-                        1u32,
-                        16u32,
-                        &mut world_settings.optical_depth_points,
-                    );
-                    ui.slider("g", 1e-4, 1f32 - 1e-4, &mut world_settings.g);
-                    ui.slider_config("Sun intensity", 0f32, 5f32)
-                        .flags(SliderFlags::LOGARITHMIC)
-                        .build(&mut world_settings.intensity);
-                    ui.slider_config("Rayleigh scale-height", 0f32, 10_000f32)
-                        .flags(SliderFlags::LOGARITHMIC)
-                        .build(&mut world_settings.rayleigh_scale_height);
-                    ui.slider_config("Mie scale-height", 0f32, 10_000f32)
-                        .flags(SliderFlags::LOGARITHMIC)
-                        .build(&mut world_settings.mie_scale_height);
-                });
-        });
-
-        context.window().gl_swap_window();
-    }
-}
-
-fn bearing_char(bearing: f32) -> &'static str {
-    // TODO - How to make a safe cast for clippy?
-    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        let segment = (((bearing + 22.5f32) % 360f32) / 45f32).trunc() as u8;
-    match segment {
-        0 => "N",
-        1 => "NE",
-        2 => "E",
-        3 => "SE",
-        4 => "S",
-        5 => "SW",
-        6 => "W",
-        7 => "NW",
-        _ => panic!("Uh oh"),
-    }
-}
-
-fn render_cube(vertex_buffer: &Buffer) {
-    unsafe {
-        gl::Clear(gl::COLOR_BUFFER_BIT);
-
-        gl::BindVertexBuffer(
-            0,
-            vertex_buffer.handle(),
-            0,
-            GLsizei::try_from(std::mem::size_of::<f32>() * 2).unwrap(),
-        );
-        gl::DrawArrays(gl::TRIANGLES, 0, 6);
-    }
+    application::main_loop(context, state)
 }

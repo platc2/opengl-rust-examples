@@ -1,5 +1,3 @@
-use std::cmp::{max, min};
-
 #[derive(Default)]
 pub struct Camera {
     position: nalgebra_glm::Vec3,

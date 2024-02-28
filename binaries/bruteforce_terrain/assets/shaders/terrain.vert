@@ -1,5 +1,4 @@
-#version 410 core
-#extension GL_ARB_shading_language_420pack : require
+#version 450 core
 
 layout (location = 0) in vec3 vertex;
 

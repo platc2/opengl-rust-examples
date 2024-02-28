@@ -6,11 +6,15 @@ keywords = ["OpenGL", "Rust"]
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["imgui"]
+imgui = ["dep:imgui"]
+
 [dependencies]
-gl_bindings.workspace = true
+imgui = { workspace = true, optional = true }
+gl_bindings = { workspace = true, features = ["GL45"] }
 sdl2.workspace = true
-imgui = "0.11.0"
-thiserror = "1.0.56"
-stb_image = "0.3.0"
-nalgebra-glm = "0.18.0"
 anyhow.workspace = true
+nalgebra-glm.workspace = true
+stb_image.workspace = true
+thiserror = "1.0.56"

@@ -1,9 +1,14 @@
 [workspace]
-members = ["libraries/*", "binaries/hello_triangle"]
+members = [
+    "libraries/*",
+    "binaries/*",
+    "learnopengl/*/*"
+]
 resolver = "2"
 
 [workspace.dependencies]
 gl_bindings = { path = "libraries/gl_bindings" }
+gl_bindings_raw_handle_derive = { path = "libraries/gl_bindings_raw_handle_derive" }
 renderer = { path = "libraries/renderer" }
 sdl2 = { version = "0.36.0", features = ["bundled", "static-link"] }
 anyhow = "1.0.70"
@@ -11,3 +16,7 @@ walkdir = "2.4.0"
 nalgebra-glm = "0.18.0"
 imgui = "0.11.0"
 noise = "0.8.2"
+stb_image = "0.3.0"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = { version = "1.0.114" }
+assimp = "0.3.1"

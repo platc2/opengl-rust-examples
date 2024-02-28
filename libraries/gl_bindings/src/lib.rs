@@ -1,30 +1,49 @@
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-/*
-use std::ops::Deref;
-use std::rc::Rc;
+extern crate gl_bindings_raw_handle_derive;
 
-pub use bindings::*;
-pub use bindings::Gl as InnerGl;
+pub use sys::load_with;
 
-mod bindings {
+pub mod buffer;
+pub mod shader;
+pub mod program;
+pub mod capabilities;
+pub mod rendering;
+pub mod state;
+pub mod vertex_array;
+pub mod vertex_attrib;
+pub mod debug;
+pub mod texture;
+pub mod framebuffer;
+pub mod image_format;
+pub mod access_type;
+pub mod pixel_format;
+pub mod pixel_type;
+pub mod error;
+
+mod gl {
+    pub use crate::sys::*;
+    pub use crate::sys::types::*;
+}
+
+macro_rules! define_gl_constants {
+    ($t:ident :: $($name:ident),+) => {
+        $(
+            pub const $name: $t = $t(gl::$name);
+        )+
+    };
+}
+
+pub(crate) use define_gl_constants;
+
+pub mod sys {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
 
-#[derive(Clone)]
-pub struct Gl {
-    inner: Rc<bindings::Gl>,
-}
+    pub trait RawHandle<T> {
+        /// # Safety
+        /// The raw types should not be handled manually, unless not possible
+        unsafe fn raw_handle(&self) -> T;
 
-impl Gl {
-    pub fn load_with<F>(load_fn: F) -> Self
-        where F: FnMut(&'static str) -> *const types::GLvoid {
-        Gl { inner: Rc::new(bindings::Gl::load_with(load_fn)) }
+        /// # Safety
+        /// The raw types should not be handled manually, unless not possible
+        unsafe fn from_raw(value: T) -> Self;
     }
 }
-
-impl Deref for Gl {
-    type Target = bindings::Gl;
-
-    fn deref(&self) -> &bindings::Gl { &self.inner }
-}
-*/

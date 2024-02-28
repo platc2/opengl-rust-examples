@@ -45,7 +45,7 @@ fn generate_icosahedron_vertices() -> [Vertex; 12] {
         glm::vec3(0., -coordinate_b, -coordinate_a),
         glm::vec3(0., -coordinate_b, coordinate_a),
     ]
-        .map(|vector| Rc::new(vector))
+        .map(Rc::new)
 }
 
 fn generate_icosahedron_triangles(vertices: &[Vertex; 12]) -> Vec<(Vertex, Vertex, Vertex)> {

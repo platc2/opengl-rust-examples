@@ -1,5 +1,4 @@
-#version 410 core
-#extension GL_ARB_shading_language_420pack : require
+#version 450 core
 
 
 in SHADER_VARYING {
@@ -47,9 +46,9 @@ const vec3 PLANET_CENTRE = vec3(0, 0, 0);
 const float PI = 3.141592;
 
 const vec3 rayleigh_coefficients = vec3(
-    3.8e-6,
-    13.5e-6,
-    33.1e-6
+3.8e-6,
+13.5e-6,
+33.1e-6
 );
 
 const vec3 mie_coefficients = vec3(2e-7);
@@ -93,16 +92,16 @@ void main() {
 
             const vec3 point_in_atmosphere = (camera.direction * distance_to_atmosphere + epsilon) + camera.origin;
             color.xyz = calculate_light(Ray(point_in_atmosphere, camera.direction), distance_through_atmosphere - epsilon * 2.0,
-                                        sun_direction, original_color.xyz);
+            sun_direction, original_color.xyz);
         }
     }
 
     color.rgb = 1.0 - exp(-color.rgb);
-/*
-    color.r = color.r < 1.413 ? pow(color.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.r);
-    color.g = color.g < 1.413 ? pow(color.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.g);
-    color.b = color.b < 1.413 ? pow(color.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.b);
-*/
+    /*
+        color.r = color.r < 1.413 ? pow(color.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.r);
+        color.g = color.g < 1.413 ? pow(color.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.g);
+        color.b = color.b < 1.413 ? pow(color.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.b);
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -115,7 +114,7 @@ void main() {
  */
 bool ray_sphere(const Sphere sphere, const Ray ray, out HitResult hit_result) {
     const vec3 offset = ray.origin - sphere.centre;
-    const float a = 1.0;  // Ray direction should be normalized
+    const float a = 1.0;// Ray direction should be normalized
     const float b = 2.0 * dot(ray.direction, offset);
     const float c = dot(offset, offset) - (sphere.radius * sphere.radius);
 
@@ -213,7 +212,7 @@ vec3 calculate_light(const Ray ray, const float ray_length, const vec3 sun_direc
         scattered_light += phaseM * attenuation * mie_coefficients;
     }
 
-//    const vec2 total_view_depth = optical_depth(planet, ray, ray_length, atmosphere_radius);
+    //    const vec2 total_view_depth = optical_depth(planet, ray, ray_length, atmosphere_radius);
     const vec2 total_view_depth = total_view_ray_optical_depth;
     const vec3 original_color_attenuated = original_color * exp(-rayleigh_coefficients * total_view_depth.x - mie_coefficients * 1.1 * total_view_depth.y);
     return original_color_attenuated + scattered_light * intensity * step_size;

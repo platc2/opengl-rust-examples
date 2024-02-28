@@ -9,81 +9,16 @@ extern crate renderer;
 extern crate sdl2;
 
 use std::path::Path;
-use std::time::Instant;
 
 use anyhow::{Context, Result};
-use imgui::Ui;
 
-use gl::types::{GLintptr, GLsizei};
 use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute, VertexBinding};
-use renderer::application::Application;
-use renderer::input_manager::{InputManager, Key};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
-use renderer::time::Time;
 
-struct State {
-    main_render_pass: RenderPass,
-    gamma_buffer: Buffer,
-    vertex_buffer: Buffer,
-    gamma: f32,
+use state::State;
 
-    quit: bool,
-}
-
-impl Application for State {
-    fn tick(&mut self, _: &Time<Instant>, input_manager: &dyn InputManager) {
-        if input_manager.key_down(Key::ESCAPE) {
-            self.quit = true;
-        }
-
-        unsafe {
-            self.main_render_pass.display();
-
-            let gamma_ptr = self.gamma_buffer.map::<f32>();
-            gamma_ptr.copy_from_slice(&[self.gamma]);
-            self.gamma_buffer.unmap();
-
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::Viewport(0, 0, 900, 700);
-            gl::BindVertexBuffer(
-                0,
-                self.vertex_buffer.handle(),
-                0 as GLintptr,
-                GLsizei::try_from(std::mem::size_of::<f32>() * 5).unwrap(),
-            );
-            gl::BindVertexBuffer(
-                1,
-                self.vertex_buffer.handle(),
-                GLintptr::try_from(std::mem::size_of::<f32>() * 2).unwrap(),
-                GLsizei::try_from(std::mem::size_of::<f32>() * 5).unwrap(),
-            );
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
-        }
-    }
-
-    fn gui(&mut self, ui: &Ui) {
-        ui.window("Settings")
-            .save_settings(false)
-            .always_auto_resize(true)
-            .build(|| {
-                ui.slider("Gamma", 0.5f32, 2.5f32, &mut self.gamma);
-                if ui.button("Reset (1.0)") {
-                    self.gamma = 1f32;
-                }
-                ui.same_line();
-                if ui.button("Reset (2.2)") {
-                    self.gamma = 2.2f32;
-                }
-                ui.text(format!("Delta time: {}", ui.io().delta_time));
-            });
-    }
-
-    fn quit(&self) -> bool {
-        self.quit
-    }
-}
-
+mod state;
 
 fn main() -> Result<()> {
     let context = RendererContext::init(
@@ -129,14 +64,11 @@ fn main() -> Result<()> {
         &[],
     )?;
 
-    let state = State {
+    let state = State::new(
         main_render_pass,
         gamma_buffer,
         vertex_buffer,
-        gamma: 1f32,
-
-        quit: false,
-    };
+    );
 
     application::main_loop(context, state)
 }

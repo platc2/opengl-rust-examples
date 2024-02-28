@@ -1,6 +1,7 @@
+use std::{ffi, fs, io};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::{ffi, fs, io};
+
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -20,6 +21,7 @@ pub enum Error {
     #[error("UTF-8 error: {0}")]
     Utf8Encoding(#[from] std::string::FromUtf8Error),
 }
+
 type Result<T> = std::result::Result<T, Error>;
 
 impl From<io::Error> for Error {

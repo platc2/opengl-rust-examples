@@ -6,26 +6,17 @@ extern crate gl_bindings as gl;
 extern crate sdl2;
 
 use std::path::Path;
-use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
-use sdl2::keyboard::Keycode;
-use sdl2::mouse::MouseButton;
+use anyhow::{Context, Result};
 
-use imgui::{Condition, TextureId};
-use renderer::{
-    Program, Shader, ShaderKind, Texture
-    ,
-};
-use renderer::imgui_wrapper;
-use renderer::key_codes::KeyCodes;
-use renderer::mouse_buttons::MouseButtons;
+use renderer::{application, Program, Shader, ShaderKind, Texture};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
 
-use crate::camera::Camera;
+use crate::state::State;
 
 mod camera;
+mod state;
 
 type Vec3 = nalgebra_glm::TVec3<f32>;
 type Vec4 = nalgebra_glm::TVec4<f32>;
@@ -73,171 +64,40 @@ fn main() -> Result<()> {
 
     compute_program.set_used();
 
-    let mut ssbo: gl::types::GLuint = 0;
+    let mut ssbo: gl::sys::types::GLuint = 0;
     unsafe {
-        gl::CreateBuffers(1, &mut ssbo);
-        gl::BindBuffer(gl::SHADER_STORAGE_BUFFER, ssbo);
-        gl::BufferData(
-            gl::SHADER_STORAGE_BUFFER,
+        gl::sys::CreateBuffers(1, &mut ssbo);
+        gl::sys::BindBuffer(gl::sys::SHADER_STORAGE_BUFFER, ssbo);
+        gl::sys::BufferData(
+            gl::sys::SHADER_STORAGE_BUFFER,
             (std::mem::size_of::<Sphere>() * spheres.len() * std::mem::size_of::<f32>())
-                as gl::types::GLsizeiptr,
-            spheres.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW,
+                as gl::sys::types::GLsizeiptr,
+            spheres.as_ptr() as *const gl::sys::types::GLvoid,
+            gl::sys::STATIC_DRAW,
         );
-        gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 5, ssbo);
+        gl::sys::BindBufferBase(gl::sys::SHADER_STORAGE_BUFFER, 5, ssbo);
     }
 
     let mut texture = Texture::blank(512, 512);
     unsafe {
-        gl::BindImageTexture(
+        gl::sys::BindImageTexture(
             0,
             texture.handle(),
             0,
-            gl::FALSE,
+            gl::sys::FALSE,
             0,
-            gl::READ_ONLY,
-            gl::RGBA32F,
+            gl::sys::READ_ONLY,
+            gl::sys::RGBA32F,
         );
     }
 
-    let mut mouse_buttons = MouseButtons::default();
-    let mut key_codes = KeyCodes::default();
-    let mut mouse_pos = (0, 0);
-
-    let mut event_pump = context.sdl().event_pump().map_err(|e| anyhow!(e))?;
-
-    let mut chars: Vec<char> = Vec::new();
-
-    let mut imgui_context = imgui_wrapper::Imgui::init();
-
-    let mut camera = Camera::default();
-
+    /*
     let mut t = 0;
     let mut frame_times = vec![60.];
     let target_fps = 60;
     let target_frame_time_ns = 1_000_000_000u32 / target_fps;
-    'main: loop {
-        let start_time = std::time::Instant::now();
-        for event in event_pump.poll_iter() {
-            use sdl2::event::Event;
-            match event {
-                Event::MouseMotion { x, y, .. } => {
-                    mouse_pos = (
-                        // This is ok - Mouse coordinates shouldn't reach numbers which overflow 16bit
-                        i16::try_from(x).unwrap_or(0),
-                        i16::try_from(y).unwrap_or(0),
-                    );
-                }
-                Event::MouseButtonDown { mouse_btn, .. } => mouse_buttons[mouse_btn] = true,
-                Event::MouseButtonUp { mouse_btn, .. } => mouse_buttons[mouse_btn] = false,
-                Event::KeyDown {
-                    keycode: Some(keycode),
-                    ..
-                } => {
-                    key_codes[keycode] = true;
-
-                    let keycode = keycode as u32;
-                    if (32..512).contains(&keycode) {
-                        chars.push(char::from_u32(keycode).unwrap());
-                    }
-                }
-                Event::KeyUp {
-                    keycode: Some(keycode),
-                    ..
-                } => key_codes[keycode] = false,
-                Event::Quit { .. } => break 'main Ok(()),
-                _ => {}
-            }
-        }
-
-        let speed = 0.05f32;
-        if key_codes[Keycode::W] {
-            camera.move_forward(speed);
-        }
-        if key_codes[Keycode::S] {
-            camera.move_forward(-speed);
-        }
-        if key_codes[Keycode::D] {
-            camera.move_right(speed);
-        }
-        if key_codes[Keycode::A] {
-            camera.move_right(-speed);
-        }
-        if key_codes[Keycode::Space] {
-            camera.move_up(speed);
-        }
-        if key_codes[Keycode::LCtrl] {
-            camera.move_up(-speed);
-        }
-        if key_codes[Keycode::Up] {
-            camera.look_up(speed);
-        }
-        if key_codes[Keycode::Down] {
-            camera.look_up(-speed);
-        }
-        if key_codes[Keycode::Right] {
-            camera.look_right(speed);
-        }
-        if key_codes[Keycode::Left] {
-            camera.look_right(-speed);
-        }
-
-        imgui_context.prepare(
-            [900f32, 700f32],
-            [mouse_pos.0.into(), mouse_pos.1.into()],
-            [
-                mouse_buttons[MouseButton::Left],
-                mouse_buttons[MouseButton::Right],
-            ],
-            &mut chars,
-        );
-
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::Viewport(0, 0, 900, 700);
-
-            compute_program.set_used();
-
-            gl::BindBufferBase(gl::SHADER_STORAGE_BUFFER, 5, ssbo);
-
-            t += 1;
-            unsafe {
-                gl::Uniform3fv(0, 1, camera.position().as_ptr());
-                gl::Uniform3fv(1, 1, camera.forward().as_ptr());
-                gl::Uniform3fv(2, 1, camera.up().as_ptr());
-            }
-
-            unsafe {
-                gl::DispatchCompute(512, 512, 1);
-                gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
-            }
-        }
 
         let fps = frame_times.iter().sum::<f32>() / (frame_times.len() as f32);
-        imgui_context.render(|ui| {
-            ui.window("Result")
-                .save_settings(false)
-                .resizable(false)
-                .position([(900. - 512.) / 2., (700. - 512.) / 2.], Condition::Once)
-                .no_decoration()
-                .movable(false)
-                .bring_to_front_on_focus(false)
-                .always_use_window_padding(false)
-                .focused(false)
-                .build(|| {
-                    imgui::Image::new(TextureId::from(texture.handle() as usize), [512f32, 512f32])
-                        .build(ui);
-                });
-            ui.window("Main")
-                .save_settings(false)
-                .always_auto_resize(true)
-                .build(|| {
-                    ui.text(format!("FPS: {}", fps));
-                    ui.plot_lines("Frame time", &frame_times[..]).build();
-                });
-        });
-
-        context.window().gl_swap_window();
 
         let frame_time = std::time::Instant::now()
             .duration_since(start_time)
@@ -254,4 +114,12 @@ fn main() -> Result<()> {
         }
         frame_times.push(fps_current);
     }
+     */
+    let state = State::new(
+        compute_program,
+        ssbo,
+        texture,
+    );
+
+    application::main_loop(context, state)
 }

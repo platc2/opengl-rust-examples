@@ -1,8 +1,11 @@
 use thiserror::Error;
 
-use gl::types::{GLchar, GLint, GLuint};
-
+use crate::renderer::program::Error::ProgramLink;
 use crate::renderer::Shader;
+
+mod gl {
+    pub use gl::program::*;
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -13,71 +16,45 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct Program {
-    handle: GLuint,
+    id: gl::ProgramId,
 }
 
 impl Program {
     /// # Errors
     /// - Program failed to link
     pub fn from_shaders(shaders: &[&Shader]) -> Result<Self> {
-        let handle = unsafe { gl::CreateProgram() };
+        let id = gl::create_program();
 
-        unsafe {
-            for shader in shaders {
-                gl::AttachShader(handle, shader.handle());
-            }
-            gl::LinkProgram(handle);
-            for shader in shaders {
-                gl::DetachShader(handle, shader.handle());
-            }
+        for shader in shaders {
+            gl::attach_shader(id, shader.id());
+        }
+        gl::link_program(id);
+        for shader in shaders {
+            gl::detach_shader(id, shader.id());
         }
 
-        let mut success: GLint = 1;
-        unsafe {
-            gl::GetProgramiv(handle, gl::LINK_STATUS, &mut success);
+        let link_successful = gl::program_link_status(id);
+        let info_log = gl::program_info_log(id);
+        if link_successful {
+            if let Some(info_log) = info_log { println!("Program linked successfully: {info_log}"); }
+            Ok(Program { id })
+        } else {
+            // I know that this function is not expensive!
+            #[allow(clippy::or_fun_call)]
+            Err(ProgramLink(info_log.unwrap_or(String::from("Unknown error"))))
         }
-
-        if success == 0 {
-            let mut len: GLint = 0;
-            unsafe {
-                gl::GetProgramiv(handle, gl::INFO_LOG_LENGTH, &mut len);
-            }
-
-            // GL_INFO_LOG_LENGTH contains a positive number or 0 if no information is available
-            let error_string_length = usize::try_from(len).unwrap_or(0);
-            let mut error_string = String::with_capacity(error_string_length);
-            error_string.extend([' '].iter().cycle().take(error_string_length));
-            unsafe {
-                gl::GetProgramInfoLog(
-                    handle,
-                    len,
-                    std::ptr::null_mut(),
-                    error_string.as_mut_ptr().cast::<GLchar>(),
-                );
-            }
-
-            return Err(Error::ProgramLink(error_string));
-        }
-
-        Ok(Self { handle })
     }
 
     pub fn set_used(&self) {
-        unsafe {
-            gl::UseProgram(self.handle);
-        }
+        gl::use_program(self.id);
     }
 
     #[must_use]
-    pub const fn handle(&self) -> GLuint {
-        self.handle
-    }
+    pub const fn id(&self) -> gl::ProgramId { self.id }
 }
 
 impl Drop for Program {
     fn drop(&mut self) {
-        unsafe {
-            gl::DeleteProgram(self.handle);
-        }
+        gl::delete_program(&mut self.id);
     }
 }

@@ -6,5 +6,21 @@ keywords = ["OpenGL", "Rust"]
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["GL45"]
+GL33 = []
+GL40 = ["GL33"]
+GL41 = ["GL40"]
+GL42 = ["GL41"]
+GL43 = ["GL42"]
+GL44 = ["GL43"]
+GL45 = ["GL44"]
+GLES20 = []
+GLES30 = ["GLES20"]
+GLES31 = ["GLES30"]
+
 [build-dependencies]
 gl_generator = "0.14.0"
+
+[dependencies]
+gl_bindings_raw_handle_derive.workspace = true

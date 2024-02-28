@@ -19,7 +19,7 @@ impl Movable for Planet {
 }
 
 impl Planet {
-    pub fn new() -> Result<Planet> {
+    pub fn new() -> Result<Self> {
         let icosahedron: Polyhedron = Polyhedron::regular_icosahedron();
         let vertex_data = generate_mesh_data(0, &nalgebra_glm::vec3(0., 0., 0.), None, &icosahedron);
         let mut vertex_buffer = Buffer::allocate(
@@ -77,7 +77,7 @@ fn generate_mesh_data(max_level: u16, camera: &nalgebra_glm::Vec3, forward: Opti
                     }
                 })
          */
-        .for_each(|(a, b, c)| recursive_triangle(&mut result, &camera, a, b, c, 0, max_level));
+        .for_each(|(a, b, c)| recursive_triangle(&mut result, camera, a, b, c, 0, max_level));
     result
 }
 

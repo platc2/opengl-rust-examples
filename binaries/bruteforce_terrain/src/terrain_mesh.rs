@@ -42,11 +42,11 @@ impl TerrainMesh {
         self.height
     }
 
-    pub const fn vertex_buffer_handle(&self) -> gl::types::GLuint {
+    pub fn vertex_buffer_handle(&self) -> gl::sys::types::GLuint {
         self.vertex_buffer.handle()
     }
 
-    pub const fn index_buffer_handle(&self) -> gl::types::GLuint {
+    pub fn index_buffer_handle(&self) -> gl::sys::types::GLuint {
         self.index_buffer.handle()
     }
 }

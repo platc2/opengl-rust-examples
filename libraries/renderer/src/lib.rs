@@ -1,7 +1,6 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
-extern crate gl_bindings as gl;
-extern crate imgui;
+pub extern crate gl_bindings as gl;
 extern crate nalgebra_glm as glm;
 extern crate sdl2;
 extern crate stb_image as stbi;
@@ -9,10 +8,10 @@ extern crate thiserror;
 
 pub use renderer::*;
 
-pub mod imgui_wrapper;
-pub mod key_codes;
-pub mod mouse_buttons;
 mod renderer;
+
+#[cfg(feature = "imgui")]
+mod imgui_impl;
 
 pub mod renderer_context;
 pub mod resources;

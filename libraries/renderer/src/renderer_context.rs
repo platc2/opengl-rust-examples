@@ -103,6 +103,13 @@ impl RendererContext {
         let gl_context = window.gl_create_context().map_err(ContextInit)?;
         gl::load_with(|s| video_subsystem.gl_get_proc_address(s).cast::<c_void>());
 
+        unsafe {
+            gl::sys::Enable(gl::sys::DEBUG_OUTPUT);
+            gl::sys::Enable(gl::sys::DEBUG_OUTPUT_SYNCHRONOUS);
+            gl::sys::DebugMessageCallback(Some(debug_msg), core::ptr::null());
+            gl::sys::DebugMessageControl(gl::sys::DONT_CARE, gl::sys::DONT_CARE, gl::sys::DONT_CARE, 0, core::ptr::null(), gl::sys::TRUE);
+        }
+
         Ok(Self {
             sdl,
             window,
@@ -119,4 +126,29 @@ impl RendererContext {
     pub const fn window(&self) -> &Window {
         &self.window
     }
+}
+
+extern "system" fn debug_msg(source: gl::sys::types::GLenum,
+                             gltype: gl::sys::types::GLenum,
+                             id: gl::sys::types::GLuint,
+                             severity: gl::sys::types::GLenum,
+                             length: gl::sys::types::GLsizei,
+                             message: *const gl::sys::types::GLchar,
+                             user_param: *mut core::ffi::c_void) {
+    if id == 131169 || id == 131185 || id == 131218 || id == 131204 { return; };
+
+    println!("---------------");
+    let message = unsafe { core::ffi::CStr::from_ptr(message) };
+    let message = message.to_str().unwrap();
+    println!("Debug message ({}): {}", id, message);
+    match source {
+        gl::sys::DEBUG_SOURCE_API => println!("Source: API"),
+        gl::sys::DEBUG_SOURCE_WINDOW_SYSTEM => println!("Source: Window system"),
+        gl::sys::DEBUG_SOURCE_SHADER_COMPILER => println!("Source: Shader compiler"),
+        gl::sys::DEBUG_SOURCE_THIRD_PARTY => println!("Source: Third party"),
+        gl::sys::DEBUG_SOURCE_APPLICATION => println!("Source: Application"),
+        gl::sys::DEBUG_SOURCE_OTHER => println!("Source: Other"),
+        _ => panic!("Unknown source"),
+    }
+    panic!("STOP");
 }

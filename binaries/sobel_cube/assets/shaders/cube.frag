@@ -1,4 +1,4 @@
-#version 440 core
+#version 450 core
 
 layout (location = 0) in SHADER_VARYING {
     vec2 uv;

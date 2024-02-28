@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use gl::types::{GLenum, GLint, GLintptr, GLsizeiptr, GLuint};
+use gl::sys::types::{GLenum, GLint, GLintptr, GLsizeiptr, GLuint};
 
 use crate::renderer::{Buffer, Program, Shader, Texture, VertexAttribute};
 use crate::renderer::render_pass::Error::IncompleteFramebuffer;
@@ -62,7 +62,7 @@ impl RenderPass {
     ) -> Result<Self> {
         let mut vertex_array_object: GLuint = 0;
         unsafe {
-            gl::CreateVertexArrays(1, &mut vertex_array_object);
+            gl::sys::CreateVertexArrays(1, &mut vertex_array_object);
         }
 
         for (
@@ -76,16 +76,16 @@ impl RenderPass {
             let index = GLuint::try_from(index).map_err(|_| Error::TooManyVertexBindings)?;
             let (format_size, format_type) = convert_format(vertex_attribute.format());
             unsafe {
-                gl::EnableVertexArrayAttrib(vertex_array_object, index);
-                gl::VertexArrayAttribFormat(
+                gl::sys::EnableVertexArrayAttrib(vertex_array_object, index);
+                gl::sys::VertexArrayAttribFormat(
                     vertex_array_object,
                     index,
                     format_size,
                     format_type,
-                    gl::FALSE,
+                    gl::sys::FALSE,
                     GLuint::from(vertex_attribute.offset()),
                 );
-                gl::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
+                gl::sys::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
             }
         }
 
@@ -103,34 +103,34 @@ impl RenderPass {
         let mut frame_buffer: GLuint = 0;
         if !attachments.is_empty() {
             unsafe {
-                gl::CreateFramebuffers(1, &mut frame_buffer);
-                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, frame_buffer);
+                gl::sys::CreateFramebuffers(1, &mut frame_buffer);
+                gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, frame_buffer);
 
                 for (index, attachment) in attachments.iter().enumerate() {
-                    gl::BindTexture(gl::TEXTURE_2D, attachment.handle());
-                    gl::FramebufferTexture2D(
-                        gl::DRAW_FRAMEBUFFER,
+                    gl::sys::BindTexture(gl::sys::TEXTURE_2D, attachment.handle());
+                    gl::sys::FramebufferTexture2D(
+                        gl::sys::DRAW_FRAMEBUFFER,
                         index_to_color_attachment_slot(index),
-                        gl::TEXTURE_2D,
+                        gl::sys::TEXTURE_2D,
                         attachment.handle(),
                         0,
                     );
                 }
 
                 let mut render_buffer: GLuint = 0;
-                gl::CreateRenderbuffers(1, &mut render_buffer);
-                gl::BindRenderbuffer(gl::RENDERBUFFER, render_buffer);
-                gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 1024, 1024);
-                gl::FramebufferRenderbuffer(
-                    gl::FRAMEBUFFER,
-                    gl::DEPTH_STENCIL_ATTACHMENT,
-                    gl::RENDERBUFFER,
+                gl::sys::CreateRenderbuffers(1, &mut render_buffer);
+                gl::sys::BindRenderbuffer(gl::sys::RENDERBUFFER, render_buffer);
+                gl::sys::RenderbufferStorage(gl::sys::RENDERBUFFER, gl::sys::DEPTH24_STENCIL8, 1024, 1024);
+                gl::sys::FramebufferRenderbuffer(
+                    gl::sys::FRAMEBUFFER,
+                    gl::sys::DEPTH_STENCIL_ATTACHMENT,
+                    gl::sys::RENDERBUFFER,
                     render_buffer,
                 );
             }
 
-            match unsafe { gl::CheckFramebufferStatus(gl::DRAW_FRAMEBUFFER) } {
-                gl::FRAMEBUFFER_COMPLETE => (),
+            match unsafe { gl::sys::CheckFramebufferStatus(gl::sys::DRAW_FRAMEBUFFER) } {
+                gl::sys::FRAMEBUFFER_COMPLETE => (),
                 e => panic!("{:x} INCOMPLETE!", e),
             }
         }
@@ -155,7 +155,7 @@ impl RenderPass {
     ) -> Result<Self> {
         let mut vertex_array_object: GLuint = 0;
         unsafe {
-            gl::CreateVertexArrays(1, &mut vertex_array_object);
+            gl::sys::CreateVertexArrays(1, &mut vertex_array_object);
         }
 
         for (
@@ -169,16 +169,16 @@ impl RenderPass {
             let index = GLuint::try_from(index).map_err(|_| Error::TooManyVertexBindings)?;
             let (format_size, format_type) = convert_format(vertex_attribute.format());
             unsafe {
-                gl::EnableVertexArrayAttrib(vertex_array_object, index);
-                gl::VertexArrayAttribFormat(
+                gl::sys::EnableVertexArrayAttrib(vertex_array_object, index);
+                gl::sys::VertexArrayAttribFormat(
                     vertex_array_object,
                     index,
                     format_size,
                     format_type,
-                    gl::FALSE,
+                    gl::sys::FALSE,
                     GLuint::from(vertex_attribute.offset()),
                 );
-                gl::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
+                gl::sys::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
             }
         }
 
@@ -196,34 +196,34 @@ impl RenderPass {
         let mut frame_buffer: GLuint = 0;
         if !attachments.is_empty() {
             unsafe {
-                gl::CreateFramebuffers(1, &mut frame_buffer);
-                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, frame_buffer);
+                gl::sys::CreateFramebuffers(1, &mut frame_buffer);
+                gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, frame_buffer);
 
                 for (index, attachment) in attachments.iter().enumerate() {
-                    gl::BindTexture(gl::TEXTURE_2D, attachment.handle());
-                    gl::FramebufferTexture2D(
-                        gl::DRAW_FRAMEBUFFER,
+                    gl::sys::BindTexture(gl::sys::TEXTURE_2D, attachment.handle());
+                    gl::sys::FramebufferTexture2D(
+                        gl::sys::DRAW_FRAMEBUFFER,
                         index_to_color_attachment_slot(index),
-                        gl::TEXTURE_2D,
+                        gl::sys::TEXTURE_2D,
                         attachment.handle(),
                         0,
                     );
                 }
 
                 let mut render_buffer: GLuint = 0;
-                gl::CreateRenderbuffers(1, &mut render_buffer);
-                gl::BindRenderbuffer(gl::RENDERBUFFER, render_buffer);
-                gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 1024, 1024);
-                gl::FramebufferRenderbuffer(
-                    gl::FRAMEBUFFER,
-                    gl::DEPTH_STENCIL_ATTACHMENT,
-                    gl::RENDERBUFFER,
+                gl::sys::CreateRenderbuffers(1, &mut render_buffer);
+                gl::sys::BindRenderbuffer(gl::sys::RENDERBUFFER, render_buffer);
+                gl::sys::RenderbufferStorage(gl::sys::RENDERBUFFER, gl::sys::DEPTH24_STENCIL8, 1024, 1024);
+                gl::sys::FramebufferRenderbuffer(
+                    gl::sys::FRAMEBUFFER,
+                    gl::sys::DEPTH_STENCIL_ATTACHMENT,
+                    gl::sys::RENDERBUFFER,
                     render_buffer,
                 );
             }
 
-            match unsafe { gl::CheckFramebufferStatus(gl::DRAW_FRAMEBUFFER) } {
-                gl::FRAMEBUFFER_COMPLETE => (),
+            match unsafe { gl::sys::CheckFramebufferStatus(gl::sys::DRAW_FRAMEBUFFER) } {
+                gl::sys::FRAMEBUFFER_COMPLETE => (),
                 e => panic!("{:x} INCOMPLETE!", e),
             }
         }
@@ -257,7 +257,7 @@ impl RenderPass {
     ) -> Result<Self> {
         let mut vertex_array_object: GLuint = 0;
         unsafe {
-            gl::CreateVertexArrays(1, &mut vertex_array_object);
+            gl::sys::CreateVertexArrays(1, &mut vertex_array_object);
         }
 
         for (
@@ -271,16 +271,16 @@ impl RenderPass {
             let index = GLuint::try_from(index).map_err(|_| Error::TooManyVertexBindings)?;
             let (format_size, format_type) = convert_format(vertex_attribute.format());
             unsafe {
-                gl::EnableVertexArrayAttrib(vertex_array_object, index);
-                gl::VertexArrayAttribFormat(
+                gl::sys::EnableVertexArrayAttrib(vertex_array_object, index);
+                gl::sys::VertexArrayAttribFormat(
                     vertex_array_object,
                     index,
                     format_size,
                     format_type,
-                    gl::FALSE,
+                    gl::sys::FALSE,
                     GLuint::from(vertex_attribute.offset()),
                 );
-                gl::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
+                gl::sys::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
             }
         }
 
@@ -306,33 +306,33 @@ impl RenderPass {
         let mut frame_buffer: GLuint = 0;
         if !attachments.is_empty() {
             unsafe {
-                gl::CreateFramebuffers(1, &mut frame_buffer);
-                gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, frame_buffer);
+                gl::sys::CreateFramebuffers(1, &mut frame_buffer);
+                gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, frame_buffer);
 
                 for (index, attachment) in attachments.iter().enumerate() {
-                    gl::BindTexture(gl::TEXTURE_2D, attachment.handle());
-                    gl::FramebufferTexture2D(
-                        gl::DRAW_FRAMEBUFFER,
+                    gl::sys::BindTexture(gl::sys::TEXTURE_2D, attachment.handle());
+                    gl::sys::FramebufferTexture2D(
+                        gl::sys::DRAW_FRAMEBUFFER,
                         index_to_color_attachment_slot(index),
-                        gl::TEXTURE_2D,
+                        gl::sys::TEXTURE_2D,
                         attachment.handle(),
                         0,
                     );
                 }
                 let mut render_buffer: GLuint = 0;
-                gl::CreateRenderbuffers(1, &mut render_buffer);
-                gl::BindRenderbuffer(gl::RENDERBUFFER, render_buffer);
-                gl::RenderbufferStorage(gl::RENDERBUFFER, gl::DEPTH24_STENCIL8, 1024, 1024);
-                gl::FramebufferRenderbuffer(
-                    gl::FRAMEBUFFER,
-                    gl::DEPTH_STENCIL_ATTACHMENT,
-                    gl::RENDERBUFFER,
+                gl::sys::CreateRenderbuffers(1, &mut render_buffer);
+                gl::sys::BindRenderbuffer(gl::sys::RENDERBUFFER, render_buffer);
+                gl::sys::RenderbufferStorage(gl::sys::RENDERBUFFER, gl::sys::DEPTH24_STENCIL8, 1024, 1024);
+                gl::sys::FramebufferRenderbuffer(
+                    gl::sys::FRAMEBUFFER,
+                    gl::sys::DEPTH_STENCIL_ATTACHMENT,
+                    gl::sys::RENDERBUFFER,
                     render_buffer,
                 );
             }
 
-            match unsafe { gl::CheckFramebufferStatus(gl::DRAW_FRAMEBUFFER) } {
-                gl::FRAMEBUFFER_COMPLETE => (),
+            match unsafe { gl::sys::CheckFramebufferStatus(gl::sys::DRAW_FRAMEBUFFER) } {
+                gl::sys::FRAMEBUFFER_COMPLETE => (),
                 _ => return Err(IncompleteFramebuffer),
             }
         }
@@ -347,11 +347,11 @@ impl RenderPass {
     }
 
     pub fn display(&self) {
-        unsafe { gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, self.frame_buffer) };
+        unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, self.frame_buffer) };
 
         self.program.set_used();
         unsafe {
-            gl::BindVertexArray(self.vertex_array_object);
+            gl::sys::BindVertexArray(self.vertex_array_object);
         }
 
         for (index, (handle, size)) in
@@ -366,7 +366,7 @@ impl RenderPass {
             })
         {
             unsafe {
-                gl::BindBufferRange(gl::UNIFORM_BUFFER, index, *handle, 0 as GLintptr, *size);
+                gl::sys::BindBufferRange(gl::sys::UNIFORM_BUFFER, index, *handle, 0 as GLintptr, *size);
             }
         }
 
@@ -377,30 +377,30 @@ impl RenderPass {
             .map(|(index, handle)| (index_to_texture_slot(index), handle))
         {
             unsafe {
-                gl::ActiveTexture(texture_slot);
-                gl::BindTexture(gl::TEXTURE_2D, *texture_handle);
+                gl::sys::ActiveTexture(texture_slot);
+                gl::sys::BindTexture(gl::sys::TEXTURE_2D, *texture_handle);
             }
         }
     }
 }
 
 fn index_to_texture_slot(index: usize) -> GLenum {
-    GLenum::try_from(gl::TEXTURE0 as usize + index).expect("Texture index too large")
+    GLenum::try_from(gl::sys::TEXTURE0 as usize + index).expect("Texture index too large")
 }
 
 fn index_to_color_attachment_slot(index: usize) -> GLenum {
-    GLenum::try_from(gl::COLOR_ATTACHMENT0 as usize + index).expect("Attachment index too large")
+    GLenum::try_from(gl::sys::COLOR_ATTACHMENT0 as usize + index).expect("Attachment index too large")
 }
 
 const fn convert_format(format: Format) -> (GLint, GLenum) {
     match format {
-        Format::R32F => (1, gl::FLOAT),
-        Format::RG32F => (2, gl::FLOAT),
-        Format::RGB32F => (3, gl::FLOAT),
-        Format::RGBA32F => (4, gl::FLOAT),
-        Format::R8 => (1, gl::BYTE),
-        Format::RG8 => (2, gl::BYTE),
-        Format::RGB8 => (3, gl::BYTE),
-        Format::RGBA8 => (4, gl::BYTE),
+        Format::R32F => (1, gl::sys::FLOAT),
+        Format::RG32F => (2, gl::sys::FLOAT),
+        Format::RGB32F => (3, gl::sys::FLOAT),
+        Format::RGBA32F => (4, gl::sys::FLOAT),
+        Format::R8 => (1, gl::sys::BYTE),
+        Format::RG8 => (2, gl::sys::BYTE),
+        Format::RGB8 => (3, gl::sys::BYTE),
+        Format::RGBA8 => (4, gl::sys::BYTE),
     }
 }

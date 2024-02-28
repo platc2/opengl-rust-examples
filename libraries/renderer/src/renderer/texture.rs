@@ -1,11 +1,17 @@
-use std::ffi::c_void;
-
 use stb_image::image::LoadResult;
 use thiserror::Error;
 
-use gl::types::{GLenum, GLint, GLsizei, GLuint};
+use ::gl::sys::RawHandle;
 
-use crate::renderer::texture::ImageLoadingError::{InvalidImage, TooLarge, UnsupportedFormat};
+use crate::renderer::texture::ImageLoadingError::{InvalidImage, UnsupportedFormat};
+
+mod gl {
+    pub use gl::image_format::*;
+    pub use gl::pixel_format::*;
+    pub use gl::pixel_type::*;
+    pub use gl::sys;
+    pub use gl::texture::*;
+}
 
 #[derive(Debug, Error)]
 pub enum ImageLoadingError {
@@ -25,86 +31,36 @@ pub enum ImageLoadingError {
 type Result<T> = std::result::Result<T, ImageLoadingError>;
 
 pub struct Texture {
-    handle: GLuint,
+    id: gl::TextureId,
     width: usize,
     height: usize,
 }
 
-struct Image {
-    gl_type: GLenum,
-    ptr: *const c_void,
-    width: GLsizei,
-    height: GLsizei,
-    depth: usize,
-}
-
-impl Image {
-    /// # Errors
-    /// - [`Error::TooLarge`]
-    pub fn from_byte(image: &stb_image::image::Image<u8>) -> Result<Self> {
-        Self::from_type(gl::UNSIGNED_BYTE, image)
-    }
-
-    /// # Errors
-    /// - [`Error::TooLarge`]
-    pub fn from_float(image: &stb_image::image::Image<f32>) -> Result<Self> {
-        Self::from_type(gl::FLOAT, image)
-    }
-
-    fn from_type<ImageType>(
-        gl_type: GLenum,
-        image: &stb_image::image::Image<ImageType>,
-    ) -> Result<Self> {
-        Ok(Self {
-            gl_type,
-            ptr: image.data.as_ptr().cast::<c_void>(),
-            width: Self::convert_dimension(image.width)?,
-            height: Self::convert_dimension(image.height)?,
-            depth: image.depth,
-        })
-    }
-
-    fn convert_dimension(dimension: usize) -> Result<GLsizei> {
-        GLsizei::try_from(dimension).map_err(|_| TooLarge)
-    }
-}
-
 impl Texture {
     pub fn from_raw_1(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
-        let mut handle: GLuint = 0;
+        let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR as _);
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MAG_FILTER, gl::sys::LINEAR as _);
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_WRAP_S, gl::sys::CLAMP_TO_EDGE as _);
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_WRAP_T, gl::sys::CLAMP_TO_EDGE as _);
 
-        let gl_width = GLsizei::try_from(width).expect("Too wide");
-        let gl_height = GLsizei::try_from(height).expect("Too high");
-
-        // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
-        let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
+        gl::bind_texture(gl::TextureTarget::TEXTURE_2D, id);
+        gl::tex_image_2d(
+            gl::TextureTarget::TEXTURE_2D,
+            0,
+            gl::ImageFormat::R8,
+            (width, height),
+            0,
+            gl::PixelFormat::RED,
+            gl::PixelType::UNSIGNED_BYTE,
+            image_data,
+        );
 
         unsafe {
-            gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
-            gl::BindTexture(gl::TEXTURE_2D, handle);
-
-            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
-            gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
-            gl::TextureParameteri(handle, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
-            gl::TextureParameteri(handle, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
-        }
-
-        unsafe {
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0 as GLint,
-                gl::R8 as GLint,
-                gl_width,
-                gl_height,
-                0 as GLint,
-                gl::RED,
-                gl::UNSIGNED_BYTE,
-                image_data.as_ptr().cast::<c_void>(),
-            );
-            gl::GenerateTextureMipmap(handle);
+            gl::sys::GenerateTextureMipmap(id.raw_handle());
         }
         Ok(Self {
-            handle,
+            id,
             width,
             height,
         })
@@ -112,39 +68,25 @@ impl Texture {
 
     /// # Errors
     pub fn from_raw(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
-        let mut handle: GLuint = 0;
+        let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
 
-        let gl_width = GLsizei::try_from(width).expect("Too wide");
-        let gl_height = GLsizei::try_from(height).expect("Too high");
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR as _);
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MAG_FILTER, gl::sys::LINEAR as _);
 
-        // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
-        let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
-        let gl_rgba = unsafe { GLint::try_from(gl::RGBA32F).unwrap_unchecked() };
+        gl::bind_texture(gl::TextureTarget::TEXTURE_2D, id);
+        gl::tex_image_2d(
+            gl::TextureTarget::TEXTURE_2D,
+            0,
+            gl::ImageFormat::RGBA32F,
+            (width, height),
+            0,
+            gl::PixelFormat::RGBA,
+            gl::PixelType::UNSIGNED_BYTE,
+            image_data);
 
-        unsafe {
-            gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
-            gl::BindTexture(gl::TEXTURE_2D, handle);
-
-            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
-            gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
-        }
-
-        unsafe {
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0 as GLint,
-                gl_rgba,
-                gl_width,
-                gl_height,
-                0 as GLint,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                image_data.as_ptr().cast::<c_void>(),
-            );
-            gl::GenerateTextureMipmap(handle);
-        }
+        unsafe { gl::sys::GenerateTextureMipmap(id.raw_handle()); }
         Ok(Self {
-            handle,
+            id,
             width,
             height,
         })
@@ -152,94 +94,85 @@ impl Texture {
     /// # Errors
     /// - [`Error::InvalidImage`]
     /// - [`Error::UnsupportedFormat`]
-    pub fn from(image_data: &mut [u8]) -> Result<Self> {
-        let mut handle: GLuint = 0;
+    pub fn from(image_data: &[u8]) -> Result<Self> {
+        let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
 
-        // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
-        let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
-        let gl_rgba = unsafe { GLint::try_from(gl::RGBA32F).unwrap_unchecked() };
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR_MIPMAP_LINEAR as _);
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MAG_FILTER, gl::sys::LINEAR as _);
 
-        unsafe {
-            gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
-            gl::BindTexture(gl::TEXTURE_2D, handle);
-
-            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as GLint);
-            gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
-        }
-
-        // TODO - Figure out how to inline stb_image into match expression without the value being dropped too early
+        gl::bind_texture(gl::TextureTarget::TEXTURE_2D, id);
         let stb_image = stb_image::image::load_from_memory(image_data);
-        let image_data = match &stb_image {
+        let (width, height) = match &stb_image {
             LoadResult::Error(error) => Err(InvalidImage(error.to_string())),
-            LoadResult::ImageU8(image_data) => Ok(Image::from_byte(image_data)?),
-            LoadResult::ImageF32(image_data) => Ok(Image::from_float(image_data)?),
+            LoadResult::ImageU8(image_data) => {
+                gl::tex_image_2d(
+                    gl::TextureTarget::TEXTURE_2D,
+                    0,
+                    gl::ImageFormat::RGBA32F,
+                    (image_data.width, image_data.height),
+                    0,
+                    format_from_depth(image_data.depth)?,
+                    gl::PixelType::UNSIGNED_BYTE,
+                    image_data.data.as_slice(),
+                );
+                Ok((image_data.width, image_data.height))
+            }
+            LoadResult::ImageF32(image_data) => {
+                gl::tex_image_2d(
+                    gl::TextureTarget::TEXTURE_2D,
+                    0,
+                    gl::ImageFormat::RGBA32F,
+                    (image_data.width, image_data.height),
+                    0,
+                    format_from_depth(image_data.depth)?,
+                    gl::PixelType::FLOAT,
+                    image_data.data.as_slice(),
+                );
+                Ok((image_data.width, image_data.height))
+            }
         }?;
 
-        let format = format_from_depth(image_data.depth)?;
-
         unsafe {
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0 as GLint,
-                gl_rgba,
-                image_data.width,
-                image_data.height,
-                0 as GLint,
-                format,
-                image_data.gl_type,
-                image_data.ptr,
-            );
-            gl::GenerateTextureMipmap(handle);
+            gl::sys::GenerateTextureMipmap(id.raw_handle());
         }
         // We don't require to check width & height as they've been validated above
         #[allow(clippy::cast_sign_loss)]
         Ok(Self {
-            handle,
-            width: image_data.width as usize,
-            height: image_data.height as usize,
+            id,
+            width,
+            height,
         })
     }
 
     #[must_use]
     pub fn blank(width: usize, height: usize) -> Self {
-        let mut handle: GLuint = 0;
+        let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
 
-        let gl_width = GLsizei::try_from(width).expect("Width too large");
-        let gl_height = GLsizei::try_from(height).expect("Height too large");
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR as _);
+        gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MAG_FILTER, gl::sys::LINEAR as _);
 
-        // TODO - Figure out why glTextureParameteri requires Glint while these values are GLenum
-        let gl_linear = unsafe { GLint::try_from(gl::LINEAR).unwrap_unchecked() };
-        let gl_rgba = unsafe { GLint::try_from(gl::RGBA32F).unwrap_unchecked() };
-
-        unsafe {
-            gl::CreateTextures(gl::TEXTURE_2D, 1 as GLsizei, &mut handle);
-            gl::BindTexture(gl::TEXTURE_2D, handle);
-
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0 as GLint,
-                gl_rgba,
-                gl_width,
-                gl_height,
-                0 as GLint,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                std::ptr::null(),
-            );
-            gl::TextureParameteri(handle, gl::TEXTURE_MIN_FILTER, gl_linear);
-            gl::TextureParameteri(handle, gl::TEXTURE_MAG_FILTER, gl_linear);
-        }
+        gl::bind_texture(gl::TextureTarget::TEXTURE_2D, id);
+        gl::tex_image_2d::<u8>(
+            gl::TextureTarget::TEXTURE_2D,
+            0,
+            gl::ImageFormat::RGBA32F,
+            (width, height),
+            0,
+            gl::PixelFormat::RGBA,
+            gl::PixelType::UNSIGNED_BYTE,
+            &[],
+        );
 
         Self {
-            handle,
+            id,
             width,
             height,
         }
     }
 
     #[must_use]
-    pub const fn handle(&self) -> GLuint {
-        self.handle
+    pub fn handle(&self) -> gl::sys::types::GLuint {
+        unsafe { self.id.raw_handle() }
     }
 
     #[must_use]
@@ -253,12 +186,12 @@ impl Texture {
     }
 }
 
-const fn format_from_depth(depth: usize) -> Result<GLenum> {
+const fn format_from_depth(depth: usize) -> Result<gl::PixelFormat> {
     match depth {
-        1 => Ok(gl::RED),
-        2 => Ok(gl::RG),
-        3 => Ok(gl::RGB),
-        4 => Ok(gl::RGBA),
+        1 => Ok(gl::PixelFormat::RED),
+        2 => Ok(gl::PixelFormat::RG),
+        3 => Ok(gl::PixelFormat::RGB),
+        4 => Ok(gl::PixelFormat::RGBA),
         _ => Err(UnsupportedFormat),
     }
 }

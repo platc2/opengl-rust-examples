@@ -1,0 +1,11 @@
+[package]
+name = "gl_bindings_raw_handle_derive"
+description = "Helper library which offers procedural macro for implementing RawHandle from single-element structs"
+version = "0.1.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0.48", features = ["full", "parsing"] }
+quote = "1.0.35"

@@ -1,11 +1,11 @@
-use std::ffi::{CStr, CString};
-
 use thiserror::Error;
 
-use gl::types::{GLenum, GLint, GLuint};
-
-use crate::renderer::shader::Error::UnsupportedFileExtension;
+use crate::renderer::shader::Error::{ShaderCompilation, UnsupportedFileExtension};
 use crate::resources::Resources;
+
+mod gl {
+    pub use gl::shader::*;
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -34,8 +34,22 @@ pub enum Kind {
     Compute,
 }
 
+impl Kind {
+    #[must_use]
+    pub const fn gl_type(self) -> gl::ShaderKind {
+        match self {
+            Self::Vertex => gl::ShaderKind::VERTEX_SHADER,
+            Self::Fragment => gl::ShaderKind::FRAGMENT_SHADER,
+            Self::Geometry => gl::ShaderKind::GEOMETRY_SHADER,
+            Self::TessellationControl => gl::ShaderKind::TESS_CONTROL_SHADER,
+            Self::TessellationEvaluation => gl::ShaderKind::TESS_EVALUATION_SHADER,
+            Self::Compute => gl::ShaderKind::COMPUTE_SHADER
+        }
+    }
+}
+
 pub struct Shader {
-    handle: GLuint,
+    id: gl::ShaderId,
     kind: Kind,
 }
 
@@ -59,24 +73,13 @@ impl Shader {
     /// # Errors
     /// - Shader compilation error
     pub fn from_source(source: &str, kind: Kind) -> Result<Self> {
-        let gl_type = match kind {
-            Kind::Vertex => gl::VERTEX_SHADER,
-            Kind::Fragment => gl::FRAGMENT_SHADER,
-            Kind::Geometry => gl::GEOMETRY_SHADER,
-            Kind::TessellationControl => gl::TESS_CONTROL_SHADER,
-            Kind::TessellationEvaluation => gl::TESS_EVALUATION_SHADER,
-            Kind::Compute => gl::COMPUTE_SHADER,
-        };
-
-        let source = &CString::new(source).expect("Shader source contains invalid characters");
-        let handle = shader_from_source(source, gl_type)?;
-        Ok(Self { handle, kind })
+        let gl_type = kind.gl_type();
+        let id = shader_from_source(source, gl_type)?;
+        Ok(Self { id, kind })
     }
 
     #[must_use]
-    pub const fn handle(&self) -> GLuint {
-        self.handle
-    }
+    pub const fn id(&self) -> gl::ShaderId { self.id }
 
     #[must_use]
     pub const fn kind(&self) -> Kind {
@@ -84,50 +87,24 @@ impl Shader {
     }
 }
 
-fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint> {
-    let handle = unsafe { gl::CreateShader(kind) };
+fn shader_from_source(source: &str, kind: gl::ShaderKind) -> Result<gl::ShaderId> {
+    let id = gl::create_shader(kind);
 
-    unsafe {
-        gl::ShaderSource(handle, 1, &source.as_ptr(), std::ptr::null());
-        gl::CompileShader(handle);
+    gl::shader_source(id, source);
+    gl::compile_shader(id);
+
+    let compilation_successful = gl::shader_compile_status(id);
+    let info_log = gl::shader_info_log(id);
+    if compilation_successful {
+        if let Some(info_log) = info_log { println!("Shader compiled successfully: {info_log}"); }
+        Ok(id)
+    } else {
+        // I know that this function is not expensive!
+        #[allow(clippy::or_fun_call)]
+        Err(ShaderCompilation(info_log.unwrap_or(String::from("Unknown error"))))
     }
-
-    let mut success: GLint = 1;
-    unsafe {
-        gl::GetShaderiv(handle, gl::COMPILE_STATUS, &mut success);
-    }
-
-    if success == 0 {
-        let mut len: GLint = 0;
-        unsafe {
-            gl::GetShaderiv(handle, gl::INFO_LOG_LENGTH, &mut len);
-        }
-
-        // GL_INFO_LOG_LENGTH contains a positive number or 0 if no information is available
-        let error_string_length = usize::try_from(len).unwrap_or(0);
-        let mut error_string = String::with_capacity(error_string_length);
-        error_string.extend([' '].iter().cycle().take(error_string_length));
-
-        unsafe {
-            gl::GetShaderInfoLog(
-                handle,
-                len,
-                std::ptr::null_mut(),
-                error_string.as_mut_ptr().cast());
-        }
-
-        println!("{}", error_string);
-
-        return Err(Error::ShaderCompilation(error_string));
-    }
-
-    Ok(handle)
 }
 
 impl Drop for Shader {
-    fn drop(&mut self) {
-        unsafe {
-            gl::DeleteShader(self.handle);
-        }
-    }
+    fn drop(&mut self) { gl::delete_shader(&mut self.id) }
 }

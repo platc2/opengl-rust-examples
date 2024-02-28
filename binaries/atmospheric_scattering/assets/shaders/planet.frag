@@ -1,5 +1,4 @@
-#version 410 core
-#extension GL_ARB_shading_language_420pack : require
+#version 450 core
 
 
 in SHADER_VARYING {
@@ -73,7 +72,7 @@ void main() {
  */
 bool ray_sphere(const Sphere sphere, const Ray ray, out HitResult hit_result) {
     const vec3 offset = ray.origin - sphere.centre;
-    const float a = 1.0;  // Ray direction should be normalized
+    const float a = 1.0;// Ray direction should be normalized
     const float b = 2.0 * dot(ray.direction, offset);
     const float c = dot(offset, offset) - (sphere.radius * sphere.radius);
 
@@ -118,8 +117,8 @@ void sun_color(inout vec4 color, const vec3 ray_direction, const vec3 sun_direct
     if (sun_dot > SUN_COEFF) {
         const float coeff01 = (sun_dot - SUN_COEFF) / (1.0 - SUN_COEFF);
         const float gradient = min(
-            exp(2.0 * coeff01 - 1) - 1,
-            exp(coeff01 / 3) - 0.5);
+        exp(2.0 * coeff01 - 1) - 1,
+        exp(coeff01 / 3) - 0.5);
         if (gradient > 0.1) {
             color.xyz = vec3(gradient);
         }

@@ -1,5 +1,4 @@
-#version 410 core
-#extension GL_ARB_shading_language_420pack: require
+#version 450 core
 
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 3) out;
@@ -25,9 +24,9 @@ vec3 compute_normal(vec2 uv) {
     const float hU = texture(heightmap, uv + offset.yx).r;
 
     return normalize(vec3(
-        hL - hR,
-        2.0 * scalingFactor,
-        hD - hU));
+    hL - hR,
+    2.0 * scalingFactor,
+    hD - hU));
 }
 
 
