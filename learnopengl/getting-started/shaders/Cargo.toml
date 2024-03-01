@@ -1,8 +1,0 @@
-[package]
-name = "shaders"
-version = "0.1.0"
-
-[dependencies]
-renderer.workspace = true
-anyhow.workspace = true
-nalgebra-glm.workspace = true

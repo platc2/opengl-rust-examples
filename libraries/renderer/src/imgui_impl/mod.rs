@@ -176,6 +176,7 @@ impl Imgui {
         gl::uniform_matrix_4fv(gl::UniformLocation::fixed(0), false, nalgebra_glm::value_ptr(&ortho));
 
         gl::bind_vertex_array(self.vertex_array_object);
+        gl::bind_buffer(gl::BufferTarget::ARRAY_BUFFER, self.vertex_buffer_object);
         gl::bind_buffer(gl::BufferTarget::ELEMENT_ARRAY_BUFFER, self.element_buffer_object);
 
         gl::active_texture(gl::TextureUnit::fixed(0));

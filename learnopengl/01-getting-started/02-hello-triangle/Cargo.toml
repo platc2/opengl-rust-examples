@@ -1,0 +1,8 @@
+[package]
+name = "hello-triangle"
+version = "0.1.0"
+
+[dependencies]
+renderer.workspace = true
+anyhow.workspace = true
+learnopengl-utils.workspace = true

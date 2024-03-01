@@ -1,0 +1,11 @@
+[package]
+name = "light-casters"
+version = "0.1.0"
+
+[dependencies]
+renderer.workspace = true
+anyhow.workspace = true
+nalgebra-glm.workspace = true
+stb_image.workspace = true
+imgui.workspace = true
+learnopengl-utils.workspace = true

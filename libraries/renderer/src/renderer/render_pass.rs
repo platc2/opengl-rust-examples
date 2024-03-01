@@ -133,6 +133,8 @@ impl RenderPass {
                 gl::sys::FRAMEBUFFER_COMPLETE => (),
                 e => panic!("{:x} INCOMPLETE!", e),
             }
+
+            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
         }
 
         Ok(Self {
@@ -226,6 +228,8 @@ impl RenderPass {
                 gl::sys::FRAMEBUFFER_COMPLETE => (),
                 e => panic!("{:x} INCOMPLETE!", e),
             }
+
+            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
         }
 
         Ok(Self {
@@ -335,6 +339,8 @@ impl RenderPass {
                 gl::sys::FRAMEBUFFER_COMPLETE => (),
                 _ => return Err(IncompleteFramebuffer),
             }
+
+            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
         }
 
         Ok(Self {
@@ -347,7 +353,9 @@ impl RenderPass {
     }
 
     pub fn display(&self) {
-        unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, self.frame_buffer) };
+        if self.frame_buffer > 0 {
+            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, self.frame_buffer) };
+        }
 
         self.program.set_used();
         unsafe {
@@ -380,6 +388,10 @@ impl RenderPass {
                 gl::sys::ActiveTexture(texture_slot);
                 gl::sys::BindTexture(gl::sys::TEXTURE_2D, *texture_handle);
             }
+        }
+
+        if self.frame_buffer > 0 {
+            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
         }
     }
 }

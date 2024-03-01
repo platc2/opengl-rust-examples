@@ -1,0 +1,10 @@
+[package]
+name = "learnopengl-utils"
+version = "0.1.0"
+
+[dependencies]
+gl_bindings = { workspace = true, features = ["GL45"] }
+renderer.workspace = true
+nalgebra-glm.workspace = true
+stb_image.workspace = true
+anyhow.workspace = true

@@ -184,7 +184,7 @@ impl Application for State {
 
 //            gl_bindings::Enable(gl_bindings::CULL_FACE);
             gl::sys::CullFace(gl::sys::BACK);
-            gl::sys::FrontFace(gl::sys::BACK);
+            gl::sys::FrontFace(gl::sys::CCW);
             gl::sys::Enable(gl::sys::DEPTH_TEST);
             gl::sys::Clear(gl::sys::COLOR_BUFFER_BIT | gl::sys::DEPTH_BUFFER_BIT);
             gl::sys::Viewport(0, 0, 900, 700);
