@@ -2,7 +2,6 @@ extern crate anyhow;
 extern crate learnopengl_utils as utils;
 extern crate nalgebra_glm as glm;
 extern crate renderer;
-extern crate stb_image;
 
 use std::fmt::{Display, Formatter};
 use std::time::Instant;
@@ -258,7 +257,7 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_3,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 8,
+        size_of::<f32>() * 8,
         0);
     gl::enable_vertex_attrib_array(0);
     gl::vertex_attrib_pointer(
@@ -266,8 +265,8 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_3,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 8,
-        core::mem::size_of::<f32>() * 3,
+        size_of::<f32>() * 8,
+        size_of::<f32>() * 3,
     );
     gl::enable_vertex_attrib_array(1);
     gl::vertex_attrib_pointer(
@@ -275,8 +274,8 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_2,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 8,
-        core::mem::size_of::<f32>() * 6,
+        size_of::<f32>() * 8,
+        size_of::<f32>() * 6,
     );
     gl::enable_vertex_attrib_array(2);
     gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);

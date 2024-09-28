@@ -74,7 +74,7 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_3,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 3,
+        size_of::<f32>() * 3,
         0);
     gl::enable_vertex_attrib_array(0);
     gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);

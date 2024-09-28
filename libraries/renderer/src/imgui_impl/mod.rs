@@ -12,6 +12,7 @@ use crate::input_manager::Key;
 use crate::renderer::{Program, Shader, ShaderKind, Texture};
 
 
+#[allow(unused)]
 mod gl {
     pub use gl::buffer::*;
     pub use gl::capabilities::*;
@@ -93,7 +94,7 @@ impl Imgui {
             None,
             &HashMap::new(),
             &Vec::new(),
-            delta
+            delta,
         );
     }
 
@@ -134,14 +135,14 @@ impl Imgui {
     /// - Unimplemented draw command
     #[allow(clippy::too_many_lines)]
     pub fn render<F>(&mut self, mut callback: F)
-        where
-            F: FnMut(&imgui::Ui),
+    where
+        F: FnMut(&imgui::Ui),
     {
         let ui = self.context.frame();
         callback(ui);
         let draw_data = self.context.render();
 
-//        gl::push_debug_group(gl::DebugGroupSource::DEBUG_SOURCE_THIRD_PARTY, 2, "ImGui Rendering");
+        //        gl::push_debug_group(gl::DebugGroupSource::DEBUG_SOURCE_THIRD_PARTY, 2, "ImGui Rendering");
 
         let blend_enabled = gl::is_enabled(gl::Capability::BLEND);
         let cull_face_enabled = gl::is_enabled(gl::Capability::CULL_FACE);
@@ -232,7 +233,7 @@ impl Imgui {
         toggle_capability(depth_test_enabled)(gl::Capability::DEPTH_TEST);
         toggle_capability(scissor_test_enabled)(gl::Capability::SCISSOR_TEST);
 
-//        gl::pop_debug_group();
+        //        gl::pop_debug_group();
     }
 }
 
