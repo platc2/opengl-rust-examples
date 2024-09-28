@@ -13,6 +13,7 @@ imgui = ["dep:imgui"]
 [dependencies]
 imgui = { workspace = true, optional = true }
 gl_bindings = { workspace = true, features = ["GL45"] }
+opengl-rs = { workspace = true, features = ["GL45"] }
 sdl2.workspace = true
 anyhow.workspace = true
 nalgebra-glm.workspace = true

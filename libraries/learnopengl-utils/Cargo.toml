@@ -1,6 +1,7 @@
 [package]
 name = "learnopengl-utils"
 version = "0.1.0"
+edition = "2021"
 
 [dependencies]
 gl_bindings = { workspace = true, features = ["GL45"] }

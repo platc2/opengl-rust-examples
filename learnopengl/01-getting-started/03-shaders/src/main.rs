@@ -70,7 +70,7 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_3,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 6,
+        size_of::<f32>() * 6,
         0);
     gl::enable_vertex_attrib_array(0);
     gl::vertex_attrib_pointer(
@@ -78,8 +78,8 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_3,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 6,
-        core::mem::size_of::<f32>() * 3,
+        size_of::<f32>() * 6,
+        size_of::<f32>() * 3,
     );
     gl::enable_vertex_attrib_array(1);
     gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);

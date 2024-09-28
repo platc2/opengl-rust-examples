@@ -1,7 +1,5 @@
-use std::ffi::c_void;
-
-use sdl2::Sdl;
 use sdl2::video::{GLContext, GLProfile, Window, WindowBuildError};
+use sdl2::Sdl;
 use thiserror::Error;
 
 use gl_bindings as gl;
@@ -101,7 +99,7 @@ impl RendererContext {
             .resizable()
             .build()?;
         let gl_context = window.gl_create_context().map_err(ContextInit)?;
-        gl::load_with(|s| video_subsystem.gl_get_proc_address(s).cast::<c_void>());
+        gl::load_with(|s| video_subsystem.gl_get_proc_address(s).cast::<std::ffi::c_void>());
 
         unsafe {
             gl::sys::Enable(gl::sys::DEBUG_OUTPUT);
@@ -129,12 +127,12 @@ impl RendererContext {
 }
 
 extern "system" fn debug_msg(source: gl::sys::types::GLenum,
-                             gltype: gl::sys::types::GLenum,
+                             _gltype: gl::sys::types::GLenum,
                              id: gl::sys::types::GLuint,
-                             severity: gl::sys::types::GLenum,
-                             length: gl::sys::types::GLsizei,
+                             _severity: gl::sys::types::GLenum,
+                             _length: gl::sys::types::GLsizei,
                              message: *const gl::sys::types::GLchar,
-                             user_param: *mut core::ffi::c_void) {
+                             _user_param: *mut std::ffi::c_void) {
     if id == 131169 || id == 131185 || id == 131218 || id == 131204 { return; };
 
     println!("---------------");

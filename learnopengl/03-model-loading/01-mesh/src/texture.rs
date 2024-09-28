@@ -1,4 +1,4 @@
-use gl;
+use crate::gl;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TextureType {

@@ -126,7 +126,7 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_3,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 8,
+        size_of::<f32>() * 8,
         0);
     gl::enable_vertex_attrib_array(0);
     gl::vertex_attrib_pointer(
@@ -134,8 +134,8 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_3,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 8,
-        core::mem::size_of::<f32>() * 3,
+        size_of::<f32>() * 8,
+        size_of::<f32>() * 3,
     );
     gl::enable_vertex_attrib_array(1);
     gl::vertex_attrib_pointer(
@@ -143,8 +143,8 @@ pub fn main() -> Result<()> {
         gl::ComponentSize::SIZE_2,
         gl::ComponentType::FLOAT,
         false,
-        core::mem::size_of::<f32>() * 8,
-        core::mem::size_of::<f32>() * 6,
+        size_of::<f32>() * 8,
+        size_of::<f32>() * 6,
     );
     gl::enable_vertex_attrib_array(2);
     gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);
@@ -156,7 +156,7 @@ pub fn main() -> Result<()> {
 
     let container_texture = utils::load_texture_2d(include_bytes!("../assets/container.jpg"))?;
     let face_texture = utils::load_texture_2d(include_bytes!("../assets/awesomeface.png"))?;
-    gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_WRAP_S, &[gl::sys::REPEAT]);
+    gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_WRAP_S, &[gl::sys::MIRRORED_REPEAT]);
     gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_WRAP_T, &[gl::sys::REPEAT]);
 
     let state = State::new(shader_program, vertex_array_object, container_texture, face_texture);

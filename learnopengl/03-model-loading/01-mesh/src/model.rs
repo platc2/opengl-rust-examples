@@ -8,9 +8,9 @@ use russimp::material::{Material, PropertyTypeInfo};
 use russimp::node::Node;
 use russimp::scene::{PostProcess, Scene};
 
-use mesh::Mesh;
-use texture::{Texture, TextureType};
-use vertex::Vertex;
+use crate::mesh::Mesh;
+use crate::texture::{Texture, TextureType};
+use crate::vertex::Vertex;
 
 mod gl {
     pub use renderer::gl::program::*;

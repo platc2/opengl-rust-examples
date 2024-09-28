@@ -1,6 +1,6 @@
-use gl;
-use texture::{Texture, TextureType};
-use vertex::Vertex;
+use crate::gl;
+use crate::texture::{Texture, TextureType};
+use crate::vertex::Vertex;
 
 pub struct Mesh {
     vertices: Vec<Vertex>,
