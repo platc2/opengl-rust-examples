@@ -99,7 +99,6 @@ impl Application for State {
             .no_decoration()
             .movable(false)
             .bring_to_front_on_focus(false)
-            .always_use_window_padding(false)
             .focused(false)
             .build(|| {
                 imgui::Image::new(TextureId::from(self.texture.handle() as usize), [512f32, 512f32])

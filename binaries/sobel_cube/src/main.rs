@@ -5,7 +5,6 @@ extern crate alloc;
 extern crate core;
 extern crate gl_bindings as gl;
 extern crate nalgebra_glm as glm;
-extern crate sdl2;
 
 use std::path::Path;
 

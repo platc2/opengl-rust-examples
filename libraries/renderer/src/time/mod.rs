@@ -21,13 +21,17 @@ impl<T: Now + Copy> Default for Time<T> {
 }
 
 impl<T: Now + DurationSince + Copy> Time<T> {
-    /// # Panics
-    /// - if subsequent invocations of `T::now()` aren't considered "later" than earlier
+
     pub fn update(&mut self) {
-        let end = T::now();
-        self.duration = end.duration_since(self.last)
+        self.update_with(T::now());
+    }
+
+    /// # Panics
+    /// - if 'time' isn't considered "later" than 'self.last'
+    pub fn update_with(&mut self, time: T) {
+        self.duration = time.duration_since(self.last)
             .expect("Has time been running backwards?");
-        self.last = end;
+        self.last = time;
     }
 
     /// # Panics

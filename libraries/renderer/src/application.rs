@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::{anyhow, Result};
 #[cfg(feature = "imgui")]
 use imgui::Ui;
@@ -37,7 +35,7 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
             input_manager.update();
         }
 
-        let mut key_changes = HashMap::new();
+        let mut key_changes = std::collections::HashMap::new();
         let mut text_input: Vec<String> = Vec::new();
         for event in event_pump.poll_iter() {
             match event {
@@ -122,7 +120,7 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
     Ok(())
 }
 
-fn insert_mod_keys(key_changes: &mut HashMap<Key, bool>, keymod: Mod) {
+fn insert_mod_keys(key_changes: &mut std::collections::HashMap<Key, bool>, keymod: Mod) {
     key_changes.insert(Key::MOD_CONTROL, keymod.contains(Mod::LCTRLMOD));
     key_changes.insert(Key::MOD_SHIFT, keymod.contains(Mod::LSHIFTMOD));
     key_changes.insert(Key::MOD_ALT, keymod.contains(Mod::LALTMOD));

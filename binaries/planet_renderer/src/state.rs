@@ -1,33 +1,43 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Instant;
 
 use imgui::Ui;
 use nalgebra_glm as glm;
 
 use gl::sys::types::{GLintptr, GLsizei};
-use renderer::{Buffer, RenderPass};
 use renderer::application::Application;
 use renderer::input_manager::{InputManager, Key};
 use renderer::time::Time;
+use renderer::{Buffer, BufferUsage, RenderPass};
 
-use crate::camera;
-use crate::camera::Camera;
+use crate::camera::{Camera, CameraController};
 use crate::frustum::{Frustum, Plane};
 use crate::matrix_uniform::MatrixUniform;
 use crate::movable::Movable;
 use crate::planet::Planet;
+use crate::polyhedron::Polyhedron;
+use crate::transform::Transform;
+use crate::{camera, planet2};
+
+struct CameraSettings {
+    active_camera: Rc<RefCell<camera::PerspectiveCamera>>,
+}
 
 pub struct State {
+    // Window configs
+    camera_window_enabled: bool,
+    terrain_window_enabled: bool,
+
     wireframe: bool,
-    max_level: u16,
-    old_level: u16,
     freeze_camera: bool,
-    last_freeze_state: bool,
     planet_mesh: Planet,
     fov: f32,
     near: f32,
     far: f32,
-    camera: camera::PerspectiveCamera,
-    camera2: camera::PerspectiveCamera,
+    camera: Rc<RefCell<camera::PerspectiveCamera>>,
+    camera2: Rc<RefCell<camera::PerspectiveCamera>>,
+    active_camera: Rc<RefCell<camera::PerspectiveCamera>>,
     camera_pos: glm::Vec3,
     camera_forward: glm::Vec3,
     camera_transform: glm::Mat4,
@@ -37,6 +47,8 @@ pub struct State {
     matrix_uniform_buffer: Buffer,
     main_render_pass: RenderPass,
     quit: bool,
+
+    planet2: planet2::Planet,
 }
 
 impl State {
@@ -44,22 +56,37 @@ impl State {
         let fov: f32 = 60.;
         let near = 0.01;
         let far = 100.;
-        let camera = camera::PerspectiveCamera::new(900. / 700., fov.to_radians(), near, far);
-        let camera_pos = *camera.transform().position();
-        let camera_forward = *camera.transform().forward();
-        let camera_transform = *camera.transform().transform();
+
+        let camera = Rc::new(RefCell::new(camera::PerspectiveCamera::new(
+            900. / 700.,
+            fov.to_radians(),
+            near,
+            far)));
+        let camera2 = Rc::new(RefCell::new(camera::PerspectiveCamera::new(
+            900. / 700.,
+            fov.to_radians(),
+            0.01,
+            500.,
+        )));
+
+        let active_camera = camera.clone();
+
+        let camera_pos = *camera.borrow().transform().position();
+        let camera_forward = *camera.borrow().transform().forward();
+        let camera_transform = *camera.borrow().transform().transform();
         Self {
+            camera_window_enabled: false,
+            terrain_window_enabled: false,
+
             wireframe: false,
-            max_level: 0,
-            old_level: 0,
             freeze_camera: false,
-            last_freeze_state: false,
             planet_mesh: Planet::new().unwrap(),
             fov,
             near,
             far,
             camera,
-            camera2: camera::PerspectiveCamera::new(900. / 700., fov.to_radians(), 0.01, 500.),
+            camera2,
+            active_camera,
             camera_pos,
             camera_forward,
             camera_transform,
@@ -69,101 +96,35 @@ impl State {
             matrix_uniform_buffer,
             main_render_pass,
             quit: false,
+
+            planet2: planet2::Planet::new(Transform::default()),
         }
     }
 }
 
 impl Application for State {
     fn tick(&mut self, time: &Time<Instant>, input_manager: &dyn InputManager) {
-        if input_manager.key_down(Key::ESCAPE) {
-            self.quit = true;
-        }
+        if input_manager.key_down(Key::ESCAPE) { self.quit = true; }
 
-        self.camera.update();
-        self.camera2.update();
-
-        if self.last_freeze_state != self.freeze_camera {
-            self.last_freeze_state = self.freeze_camera;
-        }
+        let moved = {
+            self.active_camera.borrow_mut().update();
+            let speed = time.duration().as_secs_f32();
+            let camera_controller = CameraController::new(&self.active_camera);
+            camera_controller.handle_input(input_manager, speed);
+            self.active_camera.borrow().changed()
+        };
 
         if !self.freeze_camera {
-            self.camera_pos = *self.camera.transform_mut().position();
-            self.camera_forward = *self.camera.transform_mut().forward();
-            self.camera_transform = *self.camera.transform().transform();
-        }
-
-        let mut moved = false;
-        let speed = time.duration().as_secs_f32();
-        if input_manager.key_down(Key::W) {
-            self.camera.move_forward(speed);
-            self.camera2.move_forward(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::S) {
-            self.camera.move_backward(speed);
-            self.camera2.move_backward(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::D) {
-            self.camera.move_right(-speed);
-            self.camera2.move_right(-speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::A) {
-            self.camera.move_left(-speed);
-            self.camera2.move_left(-speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::SPACE) {
-            self.camera.move_up(speed);
-            self.camera2.move_up(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::LEFT_CONTROL) {
-            self.camera.move_down(speed);
-            self.camera2.move_down(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::UP_ARROW) {
-            self.camera.look_up(speed);
-            self.camera2.look_up(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::DOWN_ARROW) {
-            self.camera.look_down(speed);
-            self.camera2.look_down(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::RIGHT_ARROW) {
-            self.camera.look_right(speed);
-            self.camera2.look_right(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::LEFT_ARROW) {
-            self.camera.look_left(speed);
-            self.camera2.look_left(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::Q) {
-            self.camera.roll_ccw(speed);
-            self.camera2.roll_ccw(speed);
-            moved = true;
-        }
-        if input_manager.key_down(Key::E) {
-            self.camera.roll_cw(speed);
-            self.camera2.roll_cw(speed);
-            moved = true;
+            let mut camera = self.camera.borrow();
+            self.camera_pos = *camera.transform().position();
+            self.camera_forward = *camera.transform().forward();
+            self.camera_transform = *camera.transform().transform();
         }
 
         self.matrix_uniforms.model = *self.planet_mesh.transform.transform();
-//        planet_mesh.look_left(0.1 * time.duration().as_secs_f32());
-        if self.freeze_camera {
-            self.matrix_uniforms.projection = *self.camera2.projection();
-            self.matrix_uniforms.view = *self.camera2.view();
-        } else {
-            self.matrix_uniforms.projection = *self.camera.projection();
-            self.matrix_uniforms.view = *self.camera.view();
-        }
+        //        planet_mesh.look_left(0.1 * time.duration().as_secs_f32());
+        self.matrix_uniforms.projection = *self.active_camera.borrow().projection();
+        self.matrix_uniforms.view = *self.active_camera.borrow().view();
 
         let matrix_uniforms_ptr = self.matrix_uniform_buffer.map::<MatrixUniform>();
         matrix_uniforms_ptr.copy_from_slice(&[self.matrix_uniforms]);
@@ -177,37 +138,98 @@ impl Application for State {
 
             self.main_render_pass.display();
 
-            if (self.old_level != self.max_level || moved) {
-                self.planet_mesh.recalculate(self.max_level, &self.camera_pos, Some(&self.camera_forward));
-                self.old_level = self.max_level;
-            }
+            let data = &[
+                -0.5, -3f32.sqrt() / 6., 0.,
+                0.5, -3f32.sqrt() / 6., 0.,
+                0., 3f32.sqrt() / 3., 0.0,
+            ];
+            let mut vertex_buffer = Buffer::allocate(BufferUsage::Vertex, size_of::<f32>() * data.len())
+                .unwrap();
+            let ptr = vertex_buffer.map();
+            ptr.copy_from_slice(data);
+            vertex_buffer.unmap();
 
-//            gl_bindings::Enable(gl_bindings::CULL_FACE);
+            gl::sys::Enable(gl::sys::CULL_FACE);
             gl::sys::CullFace(gl::sys::BACK);
             gl::sys::FrontFace(gl::sys::CCW);
             gl::sys::Enable(gl::sys::DEPTH_TEST);
             gl::sys::Clear(gl::sys::COLOR_BUFFER_BIT | gl::sys::DEPTH_BUFFER_BIT);
             gl::sys::Viewport(0, 0, 900, 700);
 
+            /*
+                        gl::sys::BindVertexBuffer(
+                            0,
+                            self.planet_mesh.vertex_buffer.handle(),
+                            0 as GLintptr,
+                            GLsizei::try_from(size_of::<f32>() * 3).unwrap(),
+                        );
+            */
+
             gl::sys::BindVertexBuffer(
                 0,
-                self.planet_mesh.vertex_buffer.handle(),
+                vertex_buffer.handle(),
                 0 as GLintptr,
-                GLsizei::try_from(std::mem::size_of::<f32>() * 3).unwrap(),
+                GLsizei::try_from(size_of::<f32>() * 3).unwrap(),
             );
 
-            gl::sys::DrawArrays(
-                gl::sys::TRIANGLES,
-                0,
-                self.planet_mesh.size as GLsizei,
-            );
+            /*
+                        gl::sys::DrawArrays(
+                            gl::sys::TRIANGLES,
+                            0,
+                            self.planet_mesh.size as GLsizei,
+                        );
+            */
+            gl::sys::Uniform1f(0, 1.);
+
+            // Collect all nodes
+            for node in self.planet2.all_nodes().iter() {
+                let transform = node.transform;
+                self.matrix_uniforms.model = *transform.transform();
+                let matrix_uniforms_ptr = self.matrix_uniform_buffer.map::<MatrixUniform>();
+                matrix_uniforms_ptr.copy_from_slice(&[self.matrix_uniforms]);
+                self.matrix_uniform_buffer.unmap();
+                gl::sys::DrawArrays(
+                    gl::sys::TRIANGLES,
+                    0,
+                    3);
+            }
+
+            self.planet2.update(self.active_camera.borrow().transform().position(), &vec![
+                10.,
+//                50.,
+            ]);
+
+/*
+            gl::sys::Uniform1f(0, 0.);
+            self.matrix_uniforms.model = *self.planet_mesh.transform.transform();
+            let matrix_uniforms_ptr = self.matrix_uniform_buffer.map::<MatrixUniform>();
+            matrix_uniforms_ptr.copy_from_slice(&[self.matrix_uniforms]);
+            self.matrix_uniform_buffer.unmap();
+            for (a, b, c) in Polyhedron::regular_icosahedron().triangles.iter() {
+                let mut v = Buffer::allocate(BufferUsage::Vertex, size_of::<f32>() * 9).unwrap();
+                let ptr = v.map();
+                let data = &[
+                    a[0], a[1], a[2],
+                    b[0], b[1], b[2],
+                    c[0], c[1], c[2],
+                ];
+                ptr.copy_from_slice(data);
+                v.unmap();
+                gl::sys::BindVertexBuffer(0, v.handle(), 0, GLsizei::try_from(size_of::<f32>() * 3).unwrap());
+                gl::sys::DrawArrays(
+                    gl::sys::TRIANGLES,
+                    0,
+                    3);
+                break;
+            }
+*/
 
             gl::sys::BindVertexBuffer(0, 0, 0, 0);
         }
 
         unsafe {
             // Draw Frustum
-            let frustum = Frustum::from_perspective_camera(&self.camera);
+            let frustum = Frustum::from_perspective_camera(&self.camera.borrow());
             let vertices = [
                 // Near
                 plane_intersection(&frustum.near_face, &frustum.top_face, &frustum.left_face),
@@ -223,9 +245,8 @@ impl Application for State {
             ];
             let a = plane_intersection(&frustum.near_face, &frustum.top_face, &frustum.left_face);
             let b = plane_intersection(&frustum.far_face, &frustum.top_face, &frustum.left_face);
-//            println!("{:?} - {:?}", a, b);
-            println!("{:?}, {:?}", frustum.near_face.position, frustum.far_face.position);
-//            println!("{:?}", vertices);
+            //            println!("{:?} - {:?}", a, b);
+            //            println!("{:?}", vertices);
             let indices: [u16; 24] = [
                 0, 1, 1, 2, 2, 3, 3, 0,
                 4, 5, 5, 6, 6, 7, 7, 4,
@@ -245,48 +266,65 @@ impl Application for State {
             matrix_uniforms_ptr.copy_from_slice(&[self.matrix_uniforms]);
             self.matrix_uniform_buffer.unmap();
 
-            gl::sys::BindVertexBuffer(0, self.frustum_vbx.handle(), 0 as GLintptr, GLsizei::try_from(std::mem::size_of::<f32>() * 3).unwrap());
+            gl::sys::BindVertexBuffer(0, self.frustum_vbx.handle(), 0 as GLintptr, GLsizei::try_from(size_of::<f32>() * 3).unwrap());
             gl::sys::BindBuffer(gl::sys::ELEMENT_ARRAY_BUFFER, self.frustum_idx.handle());
             gl::sys::DrawElements(gl::sys::LINES, 24, gl::sys::UNSIGNED_SHORT, std::ptr::null());
         }
     }
 
     fn gui(&mut self, ui: &Ui) {
-        ui.window("Settings")
-            .save_settings(false)
-            .always_auto_resize(true)
-            .build(|| {
-                ui.checkbox("Wireframe", &mut self.wireframe);
-                ui.slider("Max Level", 0, 10, &mut self.max_level);
-                ui.checkbox("Freeze camera", &mut self.freeze_camera);
-                /*
-                                ui.plot_lines(format!("FPS: {}", self.current_fps), self.fps.make_contiguous())
-                                    .scale_min(0.)
-                                    .scale_max(200.)
-                                    .build();
-                */
-                ui.columns(2, "col", false);
-                ui.text("Vertices");
-                ui.next_column();
-                ui.text_colored([1., 0.5, 0.5, 1.], format!("{}", self.planet_mesh.size));
+        ui.main_menu_bar(|| {
+            ui.menu("Windows", || {
+                ui.checkbox("Camera", &mut self.camera_window_enabled);
+                ui.checkbox("Terrain", &mut self.terrain_window_enabled);
             });
+        });
 
-        ui.window("Camera Settings")
-            .save_settings(false)
-            .always_auto_resize(true)
-            .build(|| {
-                if ui.slider("Field of view", 1f32.to_radians(), 179f32.to_radians(), &mut self.fov) {
-                    self.camera.set_fov(self.fov);
-                }
+        if self.camera_window_enabled {
+            ui.window("Camera")
+                .save_settings(false)
+                .always_auto_resize(true)
+                .build(|| {
+                    if ui.slider("Field of view", 1f32.to_radians(), 179f32.to_radians(), &mut self.fov) {
+                        self.camera.borrow_mut().set_fov(self.fov);
+                    }
 
-                if ui.slider("Near", 0.001, 10., &mut self.near) {
-                    self.camera.set_near(self.near);
-                }
+                    if ui.slider("Near", 0.001, 10., &mut self.near) {
+                        self.camera.borrow_mut().set_near(self.near);
+                    }
 
-                if ui.slider("Far", 0.001, 100., &mut self.far) {
-                    self.camera.set_far(self.far);
-                }
-            });
+                    if ui.slider("Far", 0.001, 100., &mut self.far) {
+                        self.camera.borrow_mut().set_far(self.far);
+                    }
+                });
+        }
+
+        if self.terrain_window_enabled {
+            ui.window("Settings")
+                .save_settings(false)
+                .always_auto_resize(true)
+                .build(|| {
+                    ui.checkbox("Wireframe", &mut self.wireframe);
+                    if ui.checkbox("Freeze camera", &mut self.freeze_camera) {
+                        let camera = self.camera.borrow();
+                        let transform = camera.transform();
+                        let mut camera2 = self.camera2.borrow_mut();
+                        let mut transform2 = camera2.transform_mut();
+                        transform2.set_position(*transform.position());;
+                        transform2.set_rotation(*transform.rotation());
+                        transform2.set_scale(*transform.scale());
+                        self.active_camera = if self.freeze_camera {
+                            self.camera2.clone()
+                        } else {
+                            self.camera.clone()
+                        }
+                    }
+                    ui.columns(2, "col", false);
+                    ui.text("Vertices");
+                    ui.next_column();
+                    ui.text_colored([1., 0.5, 0.5, 1.], format!("{}", self.planet_mesh.size));
+                });
+        }
     }
 
     fn quit(&self) -> bool {
@@ -307,7 +345,7 @@ fn plane_intersection(p1: &Plane, p2: &Plane, p3: &Plane) -> glm::Vec3 {
     let v = glm::cross(&m1, &d);
 
     let denom = glm::dot(&m1, &u);
-    if (denom.abs() < 0.00005) {
+    if denom.abs() < 0.00005 {
         panic!("UH OH!");
     }
 

@@ -18,7 +18,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(render_pass: RenderPass, gamma_buffer: Buffer, vertex_buffer: Buffer) -> Self {
+    pub const fn new(render_pass: RenderPass, gamma_buffer: Buffer, vertex_buffer: Buffer) -> Self {
         Self {
             render_pass,
             gamma_buffer,
@@ -48,13 +48,13 @@ impl Application for State {
                 0,
                 self.vertex_buffer.handle(),
                 0 as GLintptr,
-                GLsizei::try_from(std::mem::size_of::<f32>() * 5).unwrap(),
+                GLsizei::try_from(size_of::<f32>() * 5).unwrap(),
             );
             gl::sys::BindVertexBuffer(
                 1,
                 self.vertex_buffer.handle(),
-                GLintptr::try_from(std::mem::size_of::<f32>() * 2).unwrap(),
-                GLsizei::try_from(std::mem::size_of::<f32>() * 5).unwrap(),
+                GLintptr::try_from(size_of::<f32>() * 2).unwrap(),
+                GLsizei::try_from(size_of::<f32>() * 5).unwrap(),
             );
             gl::sys::DrawArrays(gl::sys::TRIANGLES, 0, 3);
         }

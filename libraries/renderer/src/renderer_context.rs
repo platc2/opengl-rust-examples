@@ -148,5 +148,4 @@ extern "system" fn debug_msg(source: gl::sys::types::GLenum,
         gl::sys::DEBUG_SOURCE_OTHER => println!("Source: Other"),
         _ => panic!("Unknown source"),
     }
-    panic!("STOP");
 }

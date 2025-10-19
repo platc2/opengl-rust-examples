@@ -771,6 +771,12 @@ pub fn tex_image_2d<T>(target: TextureTarget,
                        format: PixelFormat,
                        pixel_type: PixelType,
                        data: &[T]) {
+    let data_ptr = if data.is_empty() {
+        std::ptr::null()
+    } else {
+        data.as_ptr() as _
+    };
+
     unsafe {
         gl::TexImage2D(
             target.raw_handle(),
@@ -781,7 +787,7 @@ pub fn tex_image_2d<T>(target: TextureTarget,
             border as _,
             format.raw_handle(),
             pixel_type.raw_handle(),
-            data.as_ptr() as _,
+            data_ptr
         );
     }
 }

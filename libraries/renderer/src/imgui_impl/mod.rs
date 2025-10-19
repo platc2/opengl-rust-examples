@@ -30,7 +30,7 @@ mod gl {
 const IMGUI_VERTEX_SHADER_SOURCE: &str = include_str!("shaders/imgui.vert");
 const IMGUI_FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/imgui.frag");
 
-const IMGUI_INDEX_TYPE: gl::IndexType = match std::mem::size_of::<imgui::DrawIdx>() {
+const IMGUI_INDEX_TYPE: gl::IndexType = match size_of::<imgui::DrawIdx>() {
     1 => gl::IndexType::UNSIGNED_BYTE,
     2 => gl::IndexType::UNSIGNED_SHORT,
     4 => gl::IndexType::UNSIGNED_INT,
@@ -67,11 +67,11 @@ impl Imgui {
         let vertex_array_object = gl::create_vertex_array();
         gl::bind_vertex_array(vertex_array_object);
         gl::enable_vertex_attrib_array(0);
-        gl::vertex_attrib_pointer(0, gl::ComponentSize::SIZE_2, gl::ComponentType::FLOAT, false, std::mem::size_of::<imgui::DrawVert>(), 0);
+        gl::vertex_attrib_pointer(0, gl::ComponentSize::SIZE_2, gl::ComponentType::FLOAT, false, size_of::<imgui::DrawVert>(), 0);
         gl::enable_vertex_attrib_array(1);
-        gl::vertex_attrib_pointer(1, gl::ComponentSize::SIZE_2, gl::ComponentType::FLOAT, false, std::mem::size_of::<imgui::DrawVert>(), 2 * std::mem::size_of::<f32>());
+        gl::vertex_attrib_pointer(1, gl::ComponentSize::SIZE_2, gl::ComponentType::FLOAT, false, size_of::<imgui::DrawVert>(), 2 * size_of::<f32>());
         gl::enable_vertex_attrib_array(2);
-        gl::vertex_attrib_pointer(2, gl::ComponentSize::SIZE_4, gl::ComponentType::UNSIGNED_BYTE, true, std::mem::size_of::<imgui::DrawVert>(), 4 * std::mem::size_of::<f32>());
+        gl::vertex_attrib_pointer(2, gl::ComponentSize::SIZE_4, gl::ComponentType::UNSIGNED_BYTE, true, size_of::<imgui::DrawVert>(), 4 * size_of::<f32>());
         gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);
 
         Self {
@@ -199,7 +199,7 @@ impl Imgui {
                         ];
 
                         let vtx_offset = cmd_params.vtx_offset;
-                        let idx_offset = cmd_params.idx_offset * std::mem::size_of::<imgui::DrawIdx>();
+                        let idx_offset = cmd_params.idx_offset * size_of::<imgui::DrawIdx>();
                         if clip_rect[0] < frame_buffer_width
                             && clip_rect[1] < frame_buffer_height
                             && clip_rect[2] >= 0f32

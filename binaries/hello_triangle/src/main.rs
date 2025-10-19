@@ -6,9 +6,6 @@ extern crate core;
 extern crate gl_bindings as gl;
 extern crate imgui;
 extern crate renderer;
-extern crate sdl2;
-
-use std::path::Path;
 
 use anyhow::{Context, Result};
 
@@ -27,7 +24,7 @@ fn main() -> Result<()> {
         &OpenGLVersion::of(4, 5),
     )?;
 
-    let res = Resources::from_relative_exe_path(Path::new("assets"))?;
+    let res = Resources::from_relative_exe_path(std::path::Path::new("assets"))?;
 
     let vertex_buffer = initialize_vertices()?;
 
@@ -42,7 +39,7 @@ fn main() -> Result<()> {
         .and_then(|source| Shader::from_source(&source, ShaderKind::Fragment))
         .context("Failed to initialize fragment shader")?;
 
-    let gamma_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<f32>())?;
+    let gamma_buffer = Buffer::allocate(BufferUsage::Uniform, size_of::<f32>())?;
 
     let vertex_bindings = [
         VertexBinding::new(

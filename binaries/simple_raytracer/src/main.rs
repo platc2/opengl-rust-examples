@@ -3,15 +3,14 @@
 extern crate alloc;
 extern crate core;
 extern crate gl_bindings as gl;
-extern crate sdl2;
 
 use std::path::Path;
 
 use anyhow::{Context, Result};
 
-use renderer::{application, Program, Shader, ShaderKind, Texture};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
+use renderer::{application, Program, Shader, ShaderKind, Texture};
 
 use crate::state::State;
 
@@ -56,7 +55,7 @@ fn main() -> Result<()> {
     let compute_program = Program::from_shaders(&[&compute_shader])?;
 
     use nalgebra_glm::{vec3, vec4};
-    let spheres = vec![
+    let spheres = [
         Sphere::new(vec3(0., 0., -10.), 1., vec4(1., 0., 0., 1.)),
         Sphere::new(vec3(5., 0., -10.), 1., vec4(0., 1., 0., 1.)),
         Sphere::new(vec3(-5., 0., -50.), 10., vec4(0., 0., 1., 1.)),
@@ -79,6 +78,7 @@ fn main() -> Result<()> {
     }
 
     let mut texture = Texture::blank(512, 512);
+
     unsafe {
         gl::sys::BindImageTexture(
             0,
@@ -115,11 +115,7 @@ fn main() -> Result<()> {
         frame_times.push(fps_current);
     }
      */
-    let state = State::new(
-        compute_program,
-        ssbo,
-        texture,
-    );
+    let state = State::new(compute_program, ssbo, texture);
 
     application::main_loop(context, state)
 }

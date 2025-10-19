@@ -1,10 +1,10 @@
 [package]
-name = "tessellation"
-description = "Example cube application showing OpenGL's tessellation"
-repository = "https://github.com/platc2/opengl-rust"
+name = "scene-graph"
+description = "Representation of a simple Scene Graph system"
+repository = "https://github.com/platc2/opengl-rust-examples"
 keywords = ["OpenGL", "Rust"]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [build-dependencies]
 walkdir.workspace = true

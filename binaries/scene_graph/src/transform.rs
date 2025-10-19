@@ -1,4 +1,4 @@
-use nalgebra_glm as glm;
+use glm;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Transform {
