@@ -45,13 +45,13 @@ struct HitResult {
 const vec3 PLANET_CENTRE = vec3(0, 0, 0);
 const float PI = 3.141592;
 
-const vec3 rayleigh_coefficients = vec3(
-3.8e-6,
-13.5e-6,
-33.1e-6
-);
+const vec3 rayleigh_coefficients = vec3(5.5e-6, 13.0e-6, 22.4e-6);
+// 3.8e-6,
+// 13.5e-6,
+// 33.1e-6
 
-const vec3 mie_coefficients = vec3(2e-7);
+// const vec3 mie_coefficients = vec3(2e-7);
+const vec3 mie_coefficients = vec3(2e-5);
 
 /**
  * Computes the intersection points of a ray and a sphere. Returns a tuple as hit result where both value
@@ -64,6 +64,7 @@ bool ray_sphere(const Sphere sphere, const Ray ray, out HitResult hit_result);
  */
 vec3 calculate_light(const Ray ray, const float ray_length, const vec3 sun_direction, const vec3 original_color);
 
+vec3 toneMap(vec3 color);
 
 void main() {
     vec3 sun_direction = normalize(vec3(0, cos(time * PI * 2), sin(time * PI * 2)));
@@ -82,7 +83,7 @@ void main() {
 
         const bool render_skydome = atmosphere_hit && atmosphere_hit_result.exit_distance > 0.0;
         if (render_skydome) {
-            const float epsilon = 1e2;
+            const float epsilon = 1e-3;
             // Compute distance to atmosphere - If we are inside of it, the distance equals 0
             const float distance_to_atmosphere = max(0.0, atmosphere_hit_result.enter_distance);
             const float planet_distance = original_color.w;
@@ -96,12 +97,26 @@ void main() {
         }
     }
 
-    color.rgb = 1.0 - exp(-color.rgb);
+    //    color.rgb = 1.0 - exp(-color.rgb);
+
+    color.rgb = vec3(1.0) - exp(-color.rgb * 1.5);
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.2));// gamma correction
     /*
         color.r = color.r < 1.413 ? pow(color.r * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.r);
         color.g = color.g < 1.413 ? pow(color.g * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.g);
         color.b = color.b < 1.413 ? pow(color.b * 0.38317, 1.0 / 2.2) : 1.0 - exp(-color.b);
     */
+    color.rgb = toneMap(color.rgb);
+}
+
+vec3 toneMap(vec3 color) {
+    // ACES tone mapping
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -161,7 +176,7 @@ vec2 optical_depth(const Sphere sphere, const Ray ray, const float ray_length, c
     vec2 accumulated_density = vec2(0.0);
 
     for (int i = 0; i < num_optical_depth_points; ++i) {
-        const vec3 sample_point = ray.origin + (ray.direction * step_size * i);
+        const vec3 sample_point = ray.origin + ray.direction * (step_size * (i + 0.5));
         const float local_rayleigh_density = atmospheric_density(sphere, sample_point, rayleigh_scale_height);
         const float local_mie_density = atmospheric_density(sphere, sample_point, mie_scale_height);
         accumulated_density += vec2(local_rayleigh_density, local_mie_density);
@@ -171,7 +186,9 @@ vec2 optical_depth(const Sphere sphere, const Ray ray, const float ray_length, c
 }
 
 float phase_rayleigh(const float cos_theta) {
-    return (3.0 / 16.0 * PI) * (1.0 + cos_theta * cos_theta);
+    // Which one is correct?
+    // return (3.0 / 16.0 * PI) * (1.0 + cos_theta * cos_theta);
+    return (3.0 / (16.0 * PI)) * (1.0 + cos_theta * cos_theta);
 }
 
 float phase(const float cos_theta, const float g) {
@@ -199,6 +216,11 @@ vec3 calculate_light(const Ray ray, const float ray_length, const vec3 sun_direc
     vec3 scattered_light = vec3(0.0);
     for (int i = 0; i < num_inscatter_points; ++i) {
         const vec3 in_scatter_point = ray.origin + step_size * i * ray.direction;
+
+        // Compute local atmospheric densities
+        const float local_rayleigh_density = atmospheric_density(planet, in_scatter_point, rayleigh_scale_height);
+        const float local_mie_density      = atmospheric_density(planet, in_scatter_point, mie_scale_height);
+
         HitResult sun_ray_hit_result;
         // This must intersect as we are within the atmosphere
         ray_sphere(Sphere(PLANET_CENTRE, atmosphere_radius + planet_radius), Ray(in_scatter_point, sun_direction), sun_ray_hit_result);
@@ -207,9 +229,11 @@ vec3 calculate_light(const Ray ray, const float ray_length, const vec3 sun_direc
         const vec2 sun_ray_optical_depth = optical_depth(planet, Ray(in_scatter_point, sun_direction), sun_ray_length, atmosphere_radius);
         const vec2 current_optical_depth = optical_depth(planet, ray, step_size * i, atmosphere_radius);
         total_view_ray_optical_depth += current_optical_depth;
+
         const vec3 attenuation = exp(-rayleigh_coefficients * (current_optical_depth.x + sun_ray_optical_depth.x) - mie_coefficients * 1.1 * (current_optical_depth.y + sun_ray_optical_depth.y));
-        scattered_light += phaseR * attenuation * rayleigh_coefficients;
-        scattered_light += phaseM * attenuation * mie_coefficients;
+
+        scattered_light += phaseR * attenuation * local_rayleigh_density * rayleigh_coefficients;
+        scattered_light += phaseM * attenuation * local_mie_density * mie_coefficients;
     }
 
     //    const vec2 total_view_depth = optical_depth(planet, ray, ray_length, atmosphere_radius);

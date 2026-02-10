@@ -6,7 +6,7 @@ use std::fs::{self, DirBuilder};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-fn main() {
+fn main() { 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
 

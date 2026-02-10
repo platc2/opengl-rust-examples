@@ -9,12 +9,16 @@ extern crate renderer;
 
 use anyhow::{Context, Result};
 
-use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute, VertexBinding};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
+use renderer::{
+    application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute,
+    VertexBinding,
+};
 
 use state::State;
 
+mod gamma_window;
 mod state;
 
 fn main() -> Result<()> {
@@ -61,11 +65,7 @@ fn main() -> Result<()> {
         &[],
     )?;
 
-    let state = State::new(
-        main_render_pass,
-        gamma_buffer,
-        vertex_buffer,
-    );
+    let state = State::new(main_render_pass, gamma_buffer, vertex_buffer);
 
     application::main_loop(context, state)
 }
@@ -77,10 +77,8 @@ fn initialize_vertices() -> Result<Buffer> {
         -0.5f32, -0.5f32, 1f32, 0f32, 0f32, 0.5f32, -0.5f32, 0f32, 1f32, 0f32, 0f32, 0.5f32, 0f32,
         0f32, 1f32,
     ];
-    let mut vertex_buffer = Buffer::allocate(
-        BufferUsage::Vertex,
-        std::mem::size_of::<f32>() * vertices.len(),
-    )?;
+    let mut vertex_buffer =
+        Buffer::allocate(BufferUsage::Vertex, size_of::<f32>() * vertices.len())?;
     let ptr = vertex_buffer.map::<f32>();
     ptr.copy_from_slice(&vertices);
     vertex_buffer.unmap();

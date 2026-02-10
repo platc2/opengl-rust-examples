@@ -7,7 +7,6 @@ extern crate nalgebra_glm as glm;
 extern crate noise;
 
 use std::path::Path;
-
 use anyhow::{Context, Result};
 
 use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding};

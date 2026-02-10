@@ -1,10 +1,11 @@
-use crate::scene_graph::node::Node;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 mod node;
 
-struct SceneGraph {
+pub use node::*;
+
+pub struct SceneGraph {
     root: Rc<RefCell<Node>>,
 }
 

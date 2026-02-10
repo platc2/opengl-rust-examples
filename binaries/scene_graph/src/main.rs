@@ -11,8 +11,6 @@ mod transform;
 use crate::state::State;
 use anyhow::Result;
 use renderer::application;
-use renderer::application::Application;
-use renderer::input_manager::InputManager;
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
 use std::path::Path;

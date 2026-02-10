@@ -11,24 +11,55 @@ use crate::input_manager::{InputManager, Key, SdlInputManager};
 use crate::renderer_context::RendererContext;
 use crate::time::Time;
 
+#[cfg(feature = "imgui")]
+pub trait View {
+    fn name(&self) -> &str;
+
+    fn show(&mut self, ui: &Ui);
+}
+
 pub trait Application {
+    #[allow(unused)]
+    fn init(&mut self, context: &mut RendererContext) {}
+
     #[allow(unused)]
     fn tick(&mut self, time: &Time<std::time::Instant>, input_manager: &dyn InputManager) {}
 
     #[cfg(feature = "imgui")]
     fn gui(&mut self, #[allow(unused)] ui: &Ui) {}
 
-    fn quit(&self) -> bool { false }
+    fn views(&mut self) -> &mut [Box<dyn View>] {
+        &mut []
+    }
+
+    fn quit(&self) -> bool {
+        false
+    }
+}
+
+trait App {
+    fn new() -> Self;
+}
+
+pub fn start<T: App>() -> Result<()> {
+    let _ = T::new();
+
+    Ok(())
 }
 
 pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -> Result<()> {
     let mut time: Time<std::time::Instant> = Time::default();
-    let mut event_pump = context.sdl().event_pump()
-        .map_err(|e| anyhow!(e))?;
+    let mut event_pump = context.sdl().event_pump().map_err(|e| anyhow!(e))?;
     #[cfg(feature = "imgui")]
-        let mut imgui_context = Imgui::init();
+    let mut imgui_context = Imgui::init();
     let mut input_manager = SdlInputManager::default();
     let mut relative_mouse_mode = false;
+
+    let mut view_states = std::collections::HashMap::new();
+    for view in application.views() {
+        view_states.insert(view.name().to_owned(), false);
+    }
+
     'mainloop: while !application.quit() {
         time.update();
         if relative_mouse_mode {
@@ -37,9 +68,14 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
 
         let mut key_changes = std::collections::HashMap::new();
         let mut text_input: Vec<String> = Vec::new();
+
         for event in event_pump.poll_iter() {
             match event {
-                Event::KeyDown { scancode: Some(scancode), keymod, .. } => {
+                Event::KeyDown {
+                    scancode: Some(scancode),
+                    keymod,
+                    ..
+                } => {
                     if sdl2::keyboard::Scancode::Escape == scancode {
                         if relative_mouse_mode {
                             relative_mouse_mode = false;
@@ -58,7 +94,11 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
                         key_changes.insert(k, true);
                     }
                 }
-                Event::KeyUp { scancode: Some(scancode), keymod, .. } => {
+                Event::KeyUp {
+                    scancode: Some(scancode),
+                    keymod,
+                    ..
+                } => {
                     insert_mod_keys(&mut key_changes, keymod);
 
                     if let Ok(k) = scancode.try_into() {
@@ -74,13 +114,18 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
                     }
                 }
                 Event::MouseButtonDown { mouse_btn, .. } => {
-                    if mouse_btn == MouseButton::Left && !relative_mouse_mode && !imgui_context.want_capture_mouse() {
+                    if mouse_btn == MouseButton::Left
+                        && !relative_mouse_mode
+                        && !imgui_context.want_capture_mouse()
+                    {
                         relative_mouse_mode = true;
                         context.sdl().mouse().set_relative_mouse_mode(true);
                     }
                 }
                 Event::MouseWheel { x, y, .. } => {
-                    if relative_mouse_mode { input_manager.add_scroll((x, y)); }
+                    if relative_mouse_mode {
+                        input_manager.add_scroll((x, y));
+                    }
                 }
                 Event::Quit { .. } => break 'mainloop,
                 Event::TextInput { text, .. } => text_input.push(text),
@@ -112,7 +157,25 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
         application.tick(&time, &input_manager);
 
         #[cfg(feature = "imgui")]
-        imgui_context.render(|ui| application.gui(ui));
+        imgui_context.render(|ui| {
+            application.gui(ui);
+
+            ui.main_menu_bar(|| {
+                ui.menu("Views", || {
+                    for (view_name, view_state) in view_states.iter_mut() {
+                        if ui.menu_item_config(view_name).selected(*view_state).build() {
+                            *view_state = !*view_state;
+                        }
+                    }
+                });
+            });
+
+            for view in application.views() {
+                if *view_states.entry(view.name().to_owned()).or_insert(false) {
+                    view.show(ui);
+                }
+            }
+        });
 
         context.window().gl_swap_window();
     }

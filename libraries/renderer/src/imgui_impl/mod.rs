@@ -181,47 +181,49 @@ impl Imgui {
         gl::bind_buffer(gl::BufferTarget::ELEMENT_ARRAY_BUFFER, self.element_buffer_object);
 
         gl::active_texture(gl::TextureUnit::fixed(0));
-        for draw_list in draw_data.draw_lists() {
-            let vtx_buffer = draw_list.vtx_buffer();
-            let idx_buffer = draw_list.idx_buffer();
-            gl::buffer_data(gl::BufferTarget::ARRAY_BUFFER, vtx_buffer, gl::BufferUsage::STREAM_DRAW);
-            gl::buffer_data(gl::BufferTarget::ELEMENT_ARRAY_BUFFER, idx_buffer, gl::BufferUsage::STREAM_DRAW);
+        if draw_data.draw_lists_count() > 0 {
+            for draw_list in draw_data.draw_lists() {
+                let vtx_buffer = draw_list.vtx_buffer();
+                let idx_buffer = draw_list.idx_buffer();
+                gl::buffer_data(gl::BufferTarget::ARRAY_BUFFER, vtx_buffer, gl::BufferUsage::STREAM_DRAW);
+                gl::buffer_data(gl::BufferTarget::ELEMENT_ARRAY_BUFFER, idx_buffer, gl::BufferUsage::STREAM_DRAW);
 
-            for command in draw_list.commands() {
-                match command {
-                    imgui::DrawCmd::Elements { count, cmd_params } => {
-                        let clip_rect = cmd_params.clip_rect;
-                        let clip_rect = [
-                            clip_rect[0] - display_pos_x,
-                            clip_rect[1] - display_pos_y,
-                            clip_rect[2] - display_pos_x,
-                            clip_rect[3] - display_pos_y,
-                        ];
+                for command in draw_list.commands() {
+                    match command {
+                        imgui::DrawCmd::Elements { count, cmd_params } => {
+                            let clip_rect = cmd_params.clip_rect;
+                            let clip_rect = [
+                                clip_rect[0] - display_pos_x,
+                                clip_rect[1] - display_pos_y,
+                                clip_rect[2] - display_pos_x,
+                                clip_rect[3] - display_pos_y,
+                            ];
 
-                        let vtx_offset = cmd_params.vtx_offset;
-                        let idx_offset = cmd_params.idx_offset * size_of::<imgui::DrawIdx>();
-                        if clip_rect[0] < frame_buffer_width
-                            && clip_rect[1] < frame_buffer_height
-                            && clip_rect[2] >= 0f32
-                            && clip_rect[3] >= 0f32
-                        {
-                            gl::scissor(
-                                (clip_rect[0] as _, (frame_buffer_height - clip_rect[3]) as _),
-                                ((clip_rect[2] - clip_rect[0]) as _, (clip_rect[3] - clip_rect[1]) as _));
+                            let vtx_offset = cmd_params.vtx_offset;
+                            let idx_offset = cmd_params.idx_offset * size_of::<imgui::DrawIdx>();
+                            if clip_rect[0] < frame_buffer_width
+                                && clip_rect[1] < frame_buffer_height
+                                && clip_rect[2] >= 0f32
+                                && clip_rect[3] >= 0f32
+                            {
+                                gl::scissor(
+                                    (clip_rect[0] as _, (frame_buffer_height - clip_rect[3]) as _),
+                                    ((clip_rect[2] - clip_rect[0]) as _, (clip_rect[3] - clip_rect[1]) as _));
 
-                            let texture_id = unsafe { gl::TextureId::from_raw(cmd_params.texture_id.id() as _) };
-                            gl::bind_texture(gl::TextureTarget::TEXTURE_2D, texture_id);
-                            gl::draw_elements_base_vertex(
-                                gl::DrawMode::TRIANGLES,
-                                count,
-                                IMGUI_INDEX_TYPE,
-                                idx_offset,
-                                vtx_offset,
-                            );
+                                let texture_id = unsafe { gl::TextureId::from_raw(cmd_params.texture_id.id() as _) };
+                                gl::bind_texture(gl::TextureTarget::TEXTURE_2D, texture_id);
+                                gl::draw_elements_base_vertex(
+                                    gl::DrawMode::TRIANGLES,
+                                    count,
+                                    IMGUI_INDEX_TYPE,
+                                    idx_offset,
+                                    vtx_offset,
+                                );
+                            }
                         }
-                    }
-                    x => {
-                        panic!("Unimplemented! {:?}", x.type_id());
+                        x => {
+                            panic!("Unimplemented! {:?}", x.type_id());
+                        }
                     }
                 }
             }

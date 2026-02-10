@@ -138,7 +138,7 @@ extern "system" fn debug_msg(source: gl::sys::types::GLenum,
     println!("---------------");
     let message = unsafe { core::ffi::CStr::from_ptr(message) };
     let message = message.to_str().unwrap();
-    println!("Debug message ({}): {}", id, message);
+    println!("Debug message ({id}): {message}");
     match source {
         gl::sys::DEBUG_SOURCE_API => println!("Source: API"),
         gl::sys::DEBUG_SOURCE_WINDOW_SYSTEM => println!("Source: Window system"),

@@ -1,45 +1,48 @@
+use alloc::rc::Rc;
+use std::cell::RefCell;
 use std::time::Instant;
 
 use imgui::Ui;
 
+use crate::gamma_window;
 use gl::sys::types::{GLintptr, GLsizei};
-use renderer::{Buffer, RenderPass};
-use renderer::application::Application;
+use renderer::application::{Application, View};
 use renderer::input_manager::{InputManager, Key};
 use renderer::time::Time;
+use renderer::{Buffer, RenderPass};
 
 pub struct State {
     render_pass: RenderPass,
     gamma_buffer: Buffer,
     vertex_buffer: Buffer,
-    gamma: f32,
+    gamma: Rc<RefCell<f32>>,
+    views: Vec<Box<dyn View>>,
 
     quit: bool,
 }
 
 impl State {
-    pub const fn new(render_pass: RenderPass, gamma_buffer: Buffer, vertex_buffer: Buffer) -> Self {
+    pub fn new(render_pass: RenderPass, gamma_buffer: Buffer, vertex_buffer: Buffer) -> Self {
+        let gamma = Rc::new(RefCell::new(1.0f32));
         Self {
             render_pass,
             gamma_buffer,
             vertex_buffer,
-            gamma: 1f32,
+            gamma: gamma.clone(),
+            views: vec![Box::new(gamma_window::GammaWindow::new(gamma.clone()))],
+
             quit: false,
         }
     }
 }
 
 impl Application for State {
-    fn tick(&mut self, _: &Time<Instant>, input_manager: &dyn InputManager) {
-        if input_manager.key_down(Key::ESCAPE) {
-            self.quit = true;
-        }
+    fn tick(&mut self, _: &Time<Instant>, _: &dyn InputManager) {
+        self.render_pass.display();
 
         unsafe {
-            self.render_pass.display();
-
             let gamma_ptr = self.gamma_buffer.map::<f32>();
-            gamma_ptr.copy_from_slice(&[self.gamma]);
+            gamma_ptr.copy_from_slice(&[*self.gamma.borrow()]);
             self.gamma_buffer.unmap();
 
             gl::sys::Clear(gl::sys::COLOR_BUFFER_BIT);
@@ -60,20 +63,18 @@ impl Application for State {
         }
     }
 
+    fn views(&mut self) -> &mut [Box<dyn View>] {
+        &mut self.views
+    }
+
     fn gui(&mut self, ui: &Ui) {
-        ui.window("Settings")
-            .save_settings(false)
-            .always_auto_resize(true)
-            .build(|| {
-                ui.slider("Gamma", 0.5f32, 2.5f32, &mut self.gamma);
-                if ui.button("Reset (1.0)") {
-                    self.gamma = 1f32;
-                }
-                ui.same_line();
-                if ui.button("Reset (2.2)") {
-                    self.gamma = 2.2f32;
+        ui.main_menu_bar(|| {
+            ui.menu("File", || {
+                if ui.menu_item("Exit") {
+                    self.quit = true;
                 }
             });
+        });
     }
 
     fn quit(&self) -> bool {
