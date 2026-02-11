@@ -87,6 +87,10 @@ impl Imgui {
         self.context.io().want_capture_mouse
     }
 
+    pub fn want_capture_keyboard(&self) -> bool {
+        self.context.io().want_capture_keyboard
+    }
+
     pub fn prepare_unfocused(&mut self, window_dimension: WindowDimension, delta: Duration) {
         self.prepare(
             window_dimension,

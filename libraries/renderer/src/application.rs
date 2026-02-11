@@ -1,11 +1,12 @@
-use std::rc::Rc;
 use anyhow::{anyhow, Result};
 #[cfg(feature = "imgui")]
 use imgui::Ui;
-use sdl2::event::Event;
 use sdl2::keyboard::{Mod, Scancode};
 use sdl2::mouse::MouseButton;
-
+use std::cell::RefCell;
+use std::rc::Rc;
+use event::EventHandler;
+use crate::event;
 #[cfg(feature = "imgui")]
 use crate::imgui_impl::Imgui;
 use crate::input_manager::{InputManager, Key, SdlInputManager};
@@ -48,123 +49,79 @@ pub fn start<T: App>() -> Result<()> {
     Ok(())
 }
 
-trait EventHandler<E, R> {
-    fn handle_event(&mut self, event: &E) -> R;
-}
-
-struct ClosureEventHandler<E, R, F: FnMut(&E) -> R> {
-    closure: F,
-    _phantom_event: std::marker::PhantomData<E>,
-    _phantom_result: std::marker::PhantomData<R>,
-}
-
-impl<E, R, F: FnMut(&E) -> R> EventHandler<E, R> for ClosureEventHandler<E, R, F> {
-    fn handle_event(&mut self, event: &E) -> R {
-        (self.closure)(event)
-    }
-}
-
-impl<E, R, F: FnMut(&E) -> R> ClosureEventHandler<E, R, F> {
-    fn new(closure: F) -> Self {
-        Self { closure, _phantom_event: Default::default(), _phantom_result: Default::default() }
-    }
-}
-
-struct Sdl2EventHandler {
-    handlers: Vec<Box<dyn EventHandler<Event, ()>>>,
-}
-
-impl EventHandler<Event, ()> for Sdl2EventHandler {
-    fn handle_event(&mut self, event: &Event) {
-        for handler in &mut self.handlers {
-            handler.handle_event(event);
-        }
-    }
-}
-
-impl Sdl2EventHandler {
-    fn new() -> Self {
-        Self {
-            handlers: Vec::new()
-        }
-    }
-
-    fn add_handler(&mut self, handler: Box<dyn EventHandler<Event, ()>>) {
-        self.handlers.push(handler);
-    }
-
-    fn add_closure_handler<F: FnMut(&Event) + 'static>(&mut self, closure: F) {
-        let closure_handler = ClosureEventHandler::new(Box::new(closure));
-        self.handlers.push(Box::new(closure_handler));
-    }
-
-    fn add_quit_handler<F: FnMut() + 'static>(&mut self, mut closure: F) {
-        self.add_closure_handler(move |event| {
-            if let &Event::Quit { .. } = event {
-                closure();
-            }
-        });
-    }
-
-    fn add_all_keydown_handler<F: FnMut(Scancode, Mod) + 'static>(&mut self, mut closure: F) {
-        self.add_closure_handler(move |event| {
-            if let &Event::KeyDown { scancode: Some(scancode), keymod, .. } = event {
-                closure(scancode, keymod);
-            }
-        });
-    }
-
-    fn add_all_keyup_handler<F: FnMut(Scancode, Mod) + 'static>(&mut self, mut closure: F) {
-        self.add_closure_handler(move |event| {
-            if let &Event::KeyUp { scancode: Some(scancode), keymod, .. } = event {
-                closure(scancode, keymod);
-            }
-        });
-    }
-
-    fn add_keydown_handler<F: FnMut(Mod) + 'static>(&mut self, scancode: Scancode, mut closure: F) {
-        self.add_all_keydown_handler(move |sc, keymod| {
-            if sc == scancode {
-                closure(keymod);
-            }
-        });
-    }
-
-    fn add_keyup_handler<F: FnMut(Mod) + 'static>(&mut self, scancode: Scancode, mut closure: F) {
-        self.add_all_keyup_handler(move |sc, keymod| {
-            if sc == scancode {
-                closure(keymod);
-            }
-        });
-    }
-}
-
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum ApplicationState {
     Menu,
-    Playing
+    Playing,
+}
+
+enum InputEvent {
+//    KeyEvent(Key, KeyState),
+//    MouseButtonEvent(MouseButton, MouseButtonState),
+    MouseMotionEvent(i16, i16),
+    MouseWheelEvent(i16, i16),
+    TextInputEvent(String)
 }
 
 pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -> Result<()> {
     let mut time: Time<std::time::Instant> = Time::default();
     let mut event_pump = context.sdl().event_pump().map_err(|e| anyhow!(e))?;
     #[cfg(feature = "imgui")]
-    let mut imgui_context = Imgui::init();
+    let imgui_context = Rc::new(RefCell::new(Imgui::init()));
     let mut input_manager = SdlInputManager::default();
-    let mut relative_mouse_mode = false;
 
     // Initialise application state
-    let mut application_state = ApplicationState::Playing;
-    let quit_requested = Rc::new(std::cell::RefCell::new(false));
+    let application_state = Rc::new(RefCell::new(ApplicationState::Playing));
+    let quit_requested = Rc::new(RefCell::new(false));
 
-    let mut play_event_handler = Sdl2EventHandler::new();
+    // Play state handler
+    let mut play_event_handler = event::Sdl2EventHandlers::new();
     play_event_handler.add_quit_handler({
         let quit_requested = quit_requested.clone();
         move || *quit_requested.borrow_mut() = true
     });
-    let mut menu_event_handler = Sdl2EventHandler::new();
+    play_event_handler.add_keydown_handler(Scancode::Escape, {
+        let application_state = application_state.clone();
+        move |_| *application_state.borrow_mut() = ApplicationState::Menu
+    });
+
+    // Menu state handler
+    let menu_key_changes = Rc::new(RefCell::new(std::collections::HashMap::<Key, bool>::new()));
+    let menu_text_input = Rc::new(RefCell::new(Vec::new()));
+    let mut menu_event_handler = event::Sdl2EventHandlers::new();
     menu_event_handler.add_quit_handler({
         let quit_requested = quit_requested.clone();
         move || *quit_requested.borrow_mut() = true
+    });
+    menu_event_handler.add_keydown_handler(Scancode::Escape, {
+        let quit_requested = quit_requested.clone();
+        let imgui_context = imgui_context.clone();
+        move |_| if (!imgui_context.borrow().want_capture_keyboard()) { *quit_requested.borrow_mut() = true }
+    });
+    menu_event_handler.add_mouse_button_down_handler(MouseButton::Left, {
+        let application_state = application_state.clone();
+        let imgui_context = imgui_context.clone();
+        move || if (!imgui_context.borrow().want_capture_mouse()) { *application_state.borrow_mut() = ApplicationState::Playing }
+    });
+    menu_event_handler.add_all_keydown_handler({
+        let menu_key_changes = menu_key_changes.clone();
+        move |scancode, keymod| if let Ok(k) = scancode.try_into() {
+            menu_key_changes.borrow_mut().insert(k, true);
+            insert_mod_keys(&mut menu_key_changes.borrow_mut(), keymod);
+        }
+    });
+    menu_event_handler.add_all_keyup_handler({
+        let menu_key_changes = menu_key_changes.clone();
+        move |scancode, keymod| if let Ok(k) = scancode.try_into() {
+            menu_key_changes.borrow_mut().insert(k, false);
+            insert_mod_keys(&mut menu_key_changes.borrow_mut(), keymod);
+        }
+    });
+    menu_event_handler.add_text_input_handler({
+        let menu_text_input = menu_text_input.clone();
+        move |text| {
+            menu_text_input.borrow_mut().push(text)
+        }
     });
 
     let mut view_states = std::collections::HashMap::new();
@@ -174,112 +131,113 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
 
     while !application.quit() && !*quit_requested.borrow() {
         time.update();
-        if relative_mouse_mode {
+
+        let application_state = *application_state.borrow();
+        if application_state == ApplicationState::Playing {
             input_manager.update();
         }
 
-        let mut key_changes = std::collections::HashMap::new();
-        let mut text_input: Vec<String> = Vec::new();
+        imgui_context.borrow().want_capture_mouse();
 
+        menu_key_changes.borrow_mut().clear();
+        menu_text_input.borrow_mut().clear();
         for event in event_pump.poll_iter() {
-
             match application_state {
                 ApplicationState::Playing => play_event_handler.handle_event(&event),
-                ApplicationState::Menu => menu_event_handler.handle_event(&event),
+                ApplicationState::Menu => {
+                    menu_event_handler.handle_event(&event)
+                },
             }
 
             // No further processing needed
 
-/*
-            match event {
-                Event::KeyDown {
-                    scancode: Some(scancode),
-                    keymod,
-                    ..
-                } => {
-                    if sdl2::keyboard::Scancode::Escape == scancode {
-                        if relative_mouse_mode {
-                            relative_mouse_mode = false;
-                            context.sdl().mouse().set_relative_mouse_mode(false);
-                        } else {
-                            break 'mainloop;
-                        }
-                    }
+            /*
+                        match event {
+                            Event::KeyDown {
+                                scancode: Some(scancode),
+                                keymod,
+                                ..
+                            } => {
+                                insert_mod_keys(&mut key_changes, keymod);
 
-                    insert_mod_keys(&mut key_changes, keymod);
+                                if let Ok(k) = scancode.try_into() {
+                                    if relative_mouse_mode {
+                                        input_manager.set_key_down(scancode);
+                                    }
+                                    key_changes.insert(k, true);
+                                }
+                            }
+                            Event::KeyUp {
+                                scancode: Some(scancode),
+                                keymod,
+                                ..
+                            } => {
+                                insert_mod_keys(&mut key_changes, keymod);
 
-                    if let Ok(k) = scancode.try_into() {
-                        if relative_mouse_mode {
-                            input_manager.set_key_down(scancode);
+                                if let Ok(k) = scancode.try_into() {
+                                    if relative_mouse_mode {
+                                        input_manager.set_key_up(scancode);
+                                    }
+                                    key_changes.insert(k, false);
+                                }
+                            }
+                            Event::MouseMotion { xrel, yrel, .. } => {
+                                if relative_mouse_mode {
+                                    input_manager.add_mouse_movement((xrel, yrel));
+                                }
+                            }
+                            Event::MouseButtonDown { mouse_btn, .. } => {
+                                if mouse_btn == MouseButton::Left
+                                    && !relative_mouse_mode
+                                    && !imgui_context.want_capture_mouse()
+                                {
+                                    relative_mouse_mode = true;
+                                    context.sdl().mouse().set_relative_mouse_mode(true);
+                                }
+                            }
+                            Event::MouseWheel { x, y, .. } => {
+                                if relative_mouse_mode {
+                                    input_manager.add_scroll((x, y));
+                                }
+                            }
+                            Event::Quit { .. } => break 'mainloop,
+                            Event::TextInput { text, .. } => text_input.push(text),
+                            _ => (),
                         }
-                        key_changes.insert(k, true);
-                    }
-                }
-                Event::KeyUp {
-                    scancode: Some(scancode),
-                    keymod,
-                    ..
-                } => {
-                    insert_mod_keys(&mut key_changes, keymod);
+            */
+        }
 
-                    if let Ok(k) = scancode.try_into() {
-                        if relative_mouse_mode {
-                            input_manager.set_key_up(scancode);
-                        }
-                        key_changes.insert(k, false);
-                    }
-                }
-                Event::MouseMotion { xrel, yrel, .. } => {
-                    if relative_mouse_mode {
-                        input_manager.add_mouse_movement((xrel, yrel));
-                    }
-                }
-                Event::MouseButtonDown { mouse_btn, .. } => {
-                    if mouse_btn == MouseButton::Left
-                        && !relative_mouse_mode
-                        && !imgui_context.want_capture_mouse()
-                    {
-                        relative_mouse_mode = true;
-                        context.sdl().mouse().set_relative_mouse_mode(true);
-                    }
-                }
-                Event::MouseWheel { x, y, .. } => {
-                    if relative_mouse_mode {
-                        input_manager.add_scroll((x, y));
-                    }
-                }
-                Event::Quit { .. } => break 'mainloop,
-                Event::TextInput { text, .. } => text_input.push(text),
-                _ => (),
-            }
-*/
+        match application_state {
+            ApplicationState::Playing => context.sdl().mouse().set_relative_mouse_mode(true),
+            ApplicationState::Menu => context.sdl().mouse().set_relative_mouse_mode(false),
         }
 
         let mouse_state = sdl2::mouse::MouseState::new(&event_pump);
         let mouse_pos: (i16, i16) = (mouse_state.x() as _, mouse_state.y() as _);
-        if relative_mouse_mode {
+        if application_state == ApplicationState::Playing {
             input_manager.set_mouse_position((mouse_state.x(), mouse_state.y()));
         }
 
         let (w, h) = context.window().drawable_size();
         #[cfg(feature = "imgui")]
-        if relative_mouse_mode {
-            imgui_context.prepare_unfocused([w as _, h as _], time.duration());
-        } else {
-            imgui_context.prepare(
+        match application_state {
+            ApplicationState::Playing => {
+                imgui_context.borrow_mut().prepare_unfocused([w as _, h as _], time.duration())
+            }
+            ApplicationState::Menu => imgui_context.borrow_mut().prepare(
                 [w as _, h as _],
                 Some([mouse_pos.0.into(), mouse_pos.1.into()]),
                 Some([mouse_state.left(), mouse_state.right()]),
-                &key_changes,
-                &text_input,
+                &menu_key_changes.borrow(),
+                &menu_text_input.borrow(),
                 time.duration(),
-            );
+            ),
         }
 
         application.tick(&time, &input_manager);
 
         #[cfg(feature = "imgui")]
-        imgui_context.render(|ui| {
+        imgui_context.borrow_mut().render(|ui| {
             application.gui(ui);
 
             ui.main_menu_bar(|| {
@@ -290,6 +248,14 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
                         }
                     }
                 });
+
+                let status_text = format!("State: {:?}", application_state);
+                let text_size = ui.calc_text_size(&status_text);
+                let available = ui.content_region_avail()[0];
+                ui.same_line();
+                ui.dummy([available - text_size[0], 0.0]);
+                ui.same_line();
+                ui.text_disabled(status_text);
             });
 
             for view in application.views() {
@@ -306,7 +272,7 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
 }
 
 fn insert_mod_keys(key_changes: &mut std::collections::HashMap<Key, bool>, keymod: Mod) {
-    key_changes.insert(Key::MOD_CONTROL, keymod.contains(Mod::LCTRLMOD));
-    key_changes.insert(Key::MOD_SHIFT, keymod.contains(Mod::LSHIFTMOD));
-    key_changes.insert(Key::MOD_ALT, keymod.contains(Mod::LALTMOD));
+    key_changes.insert(Key::MOD_CONTROL, keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD));
+    key_changes.insert(Key::MOD_SHIFT, keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD));
+    key_changes.insert(Key::MOD_ALT, keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD));
 }
