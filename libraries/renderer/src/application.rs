@@ -1,8 +1,9 @@
+use std::rc::Rc;
 use anyhow::{anyhow, Result};
 #[cfg(feature = "imgui")]
 use imgui::Ui;
 use sdl2::event::Event;
-use sdl2::keyboard::Mod;
+use sdl2::keyboard::{Mod, Scancode};
 use sdl2::mouse::MouseButton;
 
 #[cfg(feature = "imgui")]
@@ -47,6 +48,102 @@ pub fn start<T: App>() -> Result<()> {
     Ok(())
 }
 
+trait EventHandler<E, R> {
+    fn handle_event(&mut self, event: &E) -> R;
+}
+
+struct ClosureEventHandler<E, R, F: FnMut(&E) -> R> {
+    closure: F,
+    _phantom_event: std::marker::PhantomData<E>,
+    _phantom_result: std::marker::PhantomData<R>,
+}
+
+impl<E, R, F: FnMut(&E) -> R> EventHandler<E, R> for ClosureEventHandler<E, R, F> {
+    fn handle_event(&mut self, event: &E) -> R {
+        (self.closure)(event)
+    }
+}
+
+impl<E, R, F: FnMut(&E) -> R> ClosureEventHandler<E, R, F> {
+    fn new(closure: F) -> Self {
+        Self { closure, _phantom_event: Default::default(), _phantom_result: Default::default() }
+    }
+}
+
+struct Sdl2EventHandler {
+    handlers: Vec<Box<dyn EventHandler<Event, ()>>>,
+}
+
+impl EventHandler<Event, ()> for Sdl2EventHandler {
+    fn handle_event(&mut self, event: &Event) {
+        for handler in &mut self.handlers {
+            handler.handle_event(event);
+        }
+    }
+}
+
+impl Sdl2EventHandler {
+    fn new() -> Self {
+        Self {
+            handlers: Vec::new()
+        }
+    }
+
+    fn add_handler(&mut self, handler: Box<dyn EventHandler<Event, ()>>) {
+        self.handlers.push(handler);
+    }
+
+    fn add_closure_handler<F: FnMut(&Event) + 'static>(&mut self, closure: F) {
+        let closure_handler = ClosureEventHandler::new(Box::new(closure));
+        self.handlers.push(Box::new(closure_handler));
+    }
+
+    fn add_quit_handler<F: FnMut() + 'static>(&mut self, mut closure: F) {
+        self.add_closure_handler(move |event| {
+            if let &Event::Quit { .. } = event {
+                closure();
+            }
+        });
+    }
+
+    fn add_all_keydown_handler<F: FnMut(Scancode, Mod) + 'static>(&mut self, mut closure: F) {
+        self.add_closure_handler(move |event| {
+            if let &Event::KeyDown { scancode: Some(scancode), keymod, .. } = event {
+                closure(scancode, keymod);
+            }
+        });
+    }
+
+    fn add_all_keyup_handler<F: FnMut(Scancode, Mod) + 'static>(&mut self, mut closure: F) {
+        self.add_closure_handler(move |event| {
+            if let &Event::KeyUp { scancode: Some(scancode), keymod, .. } = event {
+                closure(scancode, keymod);
+            }
+        });
+    }
+
+    fn add_keydown_handler<F: FnMut(Mod) + 'static>(&mut self, scancode: Scancode, mut closure: F) {
+        self.add_all_keydown_handler(move |sc, keymod| {
+            if sc == scancode {
+                closure(keymod);
+            }
+        });
+    }
+
+    fn add_keyup_handler<F: FnMut(Mod) + 'static>(&mut self, scancode: Scancode, mut closure: F) {
+        self.add_all_keyup_handler(move |sc, keymod| {
+            if sc == scancode {
+                closure(keymod);
+            }
+        });
+    }
+}
+
+enum ApplicationState {
+    Menu,
+    Playing
+}
+
 pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -> Result<()> {
     let mut time: Time<std::time::Instant> = Time::default();
     let mut event_pump = context.sdl().event_pump().map_err(|e| anyhow!(e))?;
@@ -55,12 +152,27 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
     let mut input_manager = SdlInputManager::default();
     let mut relative_mouse_mode = false;
 
+    // Initialise application state
+    let mut application_state = ApplicationState::Playing;
+    let quit_requested = Rc::new(std::cell::RefCell::new(false));
+
+    let mut play_event_handler = Sdl2EventHandler::new();
+    play_event_handler.add_quit_handler({
+        let quit_requested = quit_requested.clone();
+        move || *quit_requested.borrow_mut() = true
+    });
+    let mut menu_event_handler = Sdl2EventHandler::new();
+    menu_event_handler.add_quit_handler({
+        let quit_requested = quit_requested.clone();
+        move || *quit_requested.borrow_mut() = true
+    });
+
     let mut view_states = std::collections::HashMap::new();
     for view in application.views() {
         view_states.insert(view.name().to_owned(), false);
     }
 
-    'mainloop: while !application.quit() {
+    while !application.quit() && !*quit_requested.borrow() {
         time.update();
         if relative_mouse_mode {
             input_manager.update();
@@ -70,6 +182,15 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
         let mut text_input: Vec<String> = Vec::new();
 
         for event in event_pump.poll_iter() {
+
+            match application_state {
+                ApplicationState::Playing => play_event_handler.handle_event(&event),
+                ApplicationState::Menu => menu_event_handler.handle_event(&event),
+            }
+
+            // No further processing needed
+
+/*
             match event {
                 Event::KeyDown {
                     scancode: Some(scancode),
@@ -131,6 +252,7 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
                 Event::TextInput { text, .. } => text_input.push(text),
                 _ => (),
             }
+*/
         }
 
         let mouse_state = sdl2::mouse::MouseState::new(&event_pump);
