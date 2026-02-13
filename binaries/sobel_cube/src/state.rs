@@ -1,4 +1,5 @@
 use alloc::borrow::Cow;
+use std::cell::Ref;
 use std::f32::consts::PI;
 use std::time::Instant;
 
@@ -77,11 +78,7 @@ impl State {
 }
 
 impl Application for State {
-    fn tick(&mut self, time: &Time<Instant>, input_manager: &dyn InputManager) {
-        if input_manager.key_down(Key::ESCAPE) {
-            self.quit = true;
-        }
-
+    fn tick(&mut self, time: &Time<Instant>, input_manager: Ref<dyn InputManager>) {
         self.angle += 0.005f32;
         let view_projection = self.projection * self.view;
         let model = nalgebra_glm::rotation(self.angle, &nalgebra_glm::vec3(1.5f32, 1f32, 0.5f32));

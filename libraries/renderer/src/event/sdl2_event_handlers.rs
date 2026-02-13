@@ -1,53 +1,83 @@
-use super::EventHandler;
 use super::closure_event_handler::ClosureEventHandler;
+use super::EventHandler;
 use sdl2::event::Event;
 use sdl2::keyboard::{Mod, Scancode};
 use sdl2::mouse::MouseButton;
 
-pub struct Sdl2EventHandlers {
-    handlers: Vec<Box<dyn EventHandler<Event, ()>>>,
+pub trait Monoid {
+    fn empty() -> Self;
+
+    fn combine(&self, other: &Self) -> Self;
 }
 
-impl EventHandler<Event, ()> for Sdl2EventHandlers {
-    fn handle_event(&mut self, event: &Event) {
-        for handler in &mut self.handlers {
-            handler.handle_event(event);
-        }
+impl Monoid for () {
+    fn empty() -> Self {}
+
+    fn combine(&self, _other: &Self) -> Self {}
+}
+
+impl<T: Clone> Monoid for Vec<T> {
+    fn empty() -> Self {
+        Self::new()
+    }
+
+    fn combine(&self, other: &Self) -> Self {
+        let mut combined = self.clone();
+        combined.extend_from_slice(other);
+        combined
     }
 }
 
-struct MouseMotionEvent {
-    x: i32,
-    y: i32,
-    delta_x: i32,
-    delta_y: i32,
+pub struct Sdl2EventHandlers<R: Monoid = ()> {
+    handlers: Vec<Box<dyn EventHandler<Event, R>>>,
 }
 
-impl Sdl2EventHandlers {
+impl<R: Monoid> EventHandler<Event, R> for Sdl2EventHandlers<R> {
+    fn handle_event(&mut self, event: &Event) -> R {
+        self.handlers.iter_mut().fold(R::empty(), |acc, handler| {
+            let result = handler.handle_event(event);
+            acc.combine(&result)
+        })
+    }
+}
+
+pub struct MouseMotionEvent {
+    pub x: i32,
+    pub y: i32,
+    pub delta_x: i32,
+    pub delta_y: i32,
+}
+
+impl<R: Monoid + 'static> Sdl2EventHandlers<R> {
     pub fn new() -> Self {
         Self {
             handlers: Vec::new(),
         }
     }
 
-    pub fn add_handler(&mut self, handler: Box<dyn EventHandler<Event, ()>>) {
+    pub fn add_handler(&mut self, handler: Box<dyn EventHandler<Event, R>>) {
         self.handlers.push(handler);
     }
 
-    pub fn add_closure_handler<F: FnMut(&Event) + 'static>(&mut self, closure: F) {
+    pub fn add_closure_handler<F: FnMut(&Event) -> R + 'static>(&mut self, closure: F) {
         let closure_handler = ClosureEventHandler::new(Box::new(closure));
         self.add_handler(Box::new(closure_handler));
     }
 
-    pub fn add_quit_handler<F: FnMut() + 'static>(&mut self, mut closure: F) {
+    pub fn add_quit_handler<F: FnMut() -> R + 'static>(&mut self, mut closure: F) {
         self.add_closure_handler(move |event| {
             if let &Event::Quit { .. } = event {
-                closure();
+                closure()
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_all_keydown_handler<F: FnMut(Scancode, Mod) + 'static>(&mut self, mut closure: F) {
+    pub fn add_all_keydown_handler<F: FnMut(Scancode, Mod) -> R + 'static>(
+        &mut self,
+        mut closure: F,
+    ) {
         self.add_closure_handler(move |event| {
             if let &Event::KeyDown {
                 scancode: Some(scancode),
@@ -55,12 +85,17 @@ impl Sdl2EventHandlers {
                 ..
             } = event
             {
-                closure(scancode, keymod);
+                closure(scancode, keymod)
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_all_keyup_handler<F: FnMut(Scancode, Mod) + 'static>(&mut self, mut closure: F) {
+    pub fn add_all_keyup_handler<F: FnMut(Scancode, Mod) -> R + 'static>(
+        &mut self,
+        mut closure: F,
+    ) {
         self.add_closure_handler(move |event| {
             if let &Event::KeyUp {
                 scancode: Some(scancode),
@@ -68,71 +103,99 @@ impl Sdl2EventHandlers {
                 ..
             } = event
             {
-                closure(scancode, keymod);
+                closure(scancode, keymod)
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_keydown_handler<F: FnMut(Mod) + 'static>(&mut self, scancode: Scancode, mut closure: F) {
+    pub fn add_keydown_handler<F: FnMut(Mod) -> R + 'static>(
+        &mut self,
+        scancode: Scancode,
+        mut closure: F,
+    ) {
         self.add_all_keydown_handler(move |sc, keymod| {
             if sc == scancode {
-                closure(keymod);
+                closure(keymod)
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_keyup_handler<F: FnMut(Mod) + 'static>(&mut self, scancode: Scancode, mut closure: F) {
+    pub fn add_keyup_handler<F: FnMut(Mod) -> R + 'static>(
+        &mut self,
+        scancode: Scancode,
+        mut closure: F,
+    ) {
         self.add_all_keyup_handler(move |sc, keymod| {
             if sc == scancode {
-                closure(keymod);
+                closure(keymod)
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_all_mouse_button_down_handler<F: FnMut(MouseButton) + 'static>(
+    pub fn add_all_mouse_button_down_handler<F: FnMut(MouseButton) -> R + 'static>(
         &mut self,
         mut closure: F,
     ) {
         self.add_closure_handler(move |event| {
             if let &Event::MouseButtonDown { mouse_btn, .. } = event {
-                closure(mouse_btn);
+                closure(mouse_btn)
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_all_mouse_button_up_handler<F: FnMut(MouseButton) + 'static>(&mut self, mut closure: F) {
+    pub fn add_all_mouse_button_up_handler<F: FnMut(MouseButton) -> R + 'static>(
+        &mut self,
+        mut closure: F,
+    ) {
         self.add_closure_handler(move |event| {
             if let &Event::MouseButtonUp { mouse_btn, .. } = event {
-                closure(mouse_btn);
+                closure(mouse_btn)
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_mouse_button_down_handler<F: FnMut() + 'static>(
+    pub fn add_mouse_button_down_handler<F: FnMut() -> R + 'static>(
         &mut self,
         mouse_btn: MouseButton,
         mut closure: F,
     ) {
         self.add_all_mouse_button_down_handler(move |mb| {
             if mb == mouse_btn {
-                closure();
+                closure()
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_mouse_button_up_handler<F: FnMut() + 'static>(
+    pub fn add_mouse_button_up_handler<F: FnMut() -> R + 'static>(
         &mut self,
         mouse_btn: MouseButton,
         mut closure: F,
     ) {
         self.add_all_mouse_button_up_handler(move |mb| {
             if mb == mouse_btn {
-                closure();
+                closure()
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_mouse_motion_handler<F: FnMut(MouseMotionEvent) + 'static>(&mut self, mut closure: F) {
+    pub fn add_mouse_motion_handler<F: FnMut(MouseMotionEvent) -> R + 'static>(
+        &mut self,
+        mut closure: F,
+    ) {
         self.add_closure_handler(move |event| {
             if let &Event::MouseMotion {
                 xrel, yrel, x, y, ..
@@ -143,15 +206,19 @@ impl Sdl2EventHandlers {
                     y,
                     delta_x: xrel,
                     delta_y: yrel,
-                });
+                })
+            } else {
+                R::empty()
             }
         });
     }
 
-    pub fn add_text_input_handler<F: FnMut(String) + 'static>(&mut self, mut closure: F) {
+    pub fn add_text_input_handler<F: FnMut(String) -> R + 'static>(&mut self, mut closure: F) {
         self.add_closure_handler(move |event| {
             if let Event::TextInput { text, .. } = event {
-                closure(text.to_owned());
+                closure(text.to_owned())
+            } else {
+                R::empty()
             }
         });
     }

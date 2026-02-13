@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -103,9 +103,7 @@ impl State {
 }
 
 impl Application for State {
-    fn tick(&mut self, time: &Time<Instant>, input_manager: &dyn InputManager) {
-        if input_manager.key_down(Key::ESCAPE) { self.quit = true; }
-
+    fn tick(&mut self, time: &Time<Instant>, input_manager: Ref<dyn InputManager>) {
         let moved = {
             self.active_camera.borrow_mut().update();
             let speed = time.duration().as_secs_f32();

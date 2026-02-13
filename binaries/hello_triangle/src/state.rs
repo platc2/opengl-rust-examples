@@ -67,16 +67,6 @@ impl Application for State {
         &mut self.views
     }
 
-    fn gui(&mut self, ui: &Ui) {
-        ui.main_menu_bar(|| {
-            ui.menu("File", || {
-                if ui.menu_item("Exit") {
-                    self.quit = true;
-                }
-            });
-        });
-    }
-
     fn quit(&self) -> bool {
         self.quit
     }

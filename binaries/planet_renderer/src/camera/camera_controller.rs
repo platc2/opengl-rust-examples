@@ -1,7 +1,7 @@
 use crate::camera::Camera;
 use crate::movable::Movable;
 use renderer::input_manager::{InputManager, Key};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
 pub struct CameraController<C: Camera + Movable>
@@ -14,7 +14,7 @@ impl<C: Camera + Movable> CameraController<C> {
         Self { camera: camera.clone() }
     }
 
-    pub fn handle_input<I: InputManager + ?Sized>(&self, input_manager: &I, delta: f32) {
+    pub fn handle_input<I: InputManager + ?Sized>(&self, input_manager: Ref<I>, delta: f32) {
         let speed = delta;
 
         let mut camera = self.camera.borrow_mut();

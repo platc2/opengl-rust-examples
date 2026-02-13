@@ -1,3 +1,4 @@
+use std::cell::Ref;
 use crate::polyhedron::{Polyhedron, Triangle};
 use anyhow::Result;
 use imgui::Ui;
@@ -72,7 +73,7 @@ impl State {
 }
 
 impl Application for State {
-    fn tick(&mut self, time: &Time<Instant>, input_manager: &dyn InputManager) {
+    fn tick(&mut self, time: &Time<Instant>, input_manager: Ref<dyn InputManager>) {
         if input_manager.key_down(Key::ESCAPE) {
             self.quit = true;
         }
