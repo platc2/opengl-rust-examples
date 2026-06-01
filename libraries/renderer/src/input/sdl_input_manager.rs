@@ -12,7 +12,7 @@ pub struct SdlInputManager {
     new_mouse_position: (i32, i32),
     mouse_position: (i32, i32),
     mouse_movement: (i32, i32),
-    scroll: (i32, i32),
+    scroll: (f32, f32),
 }
 
 impl InputManager for SdlInputManager {
@@ -40,7 +40,7 @@ impl InputManager for SdlInputManager {
         self.mouse_movement
     }
 
-    fn scroll(&self) -> (i32, i32) { self.scroll }
+    fn scroll(&self) -> (f32, f32) { self.scroll }
 }
 
 impl SdlInputManager {
@@ -51,7 +51,7 @@ impl SdlInputManager {
         }
 
         self.mouse_movement = (0, 0);
-        self.scroll = (0, 0);
+        self.scroll = (0f32, 0f32);
     }
 
     pub fn set_key_down(&mut self, key: SdlKey) {
@@ -77,7 +77,7 @@ impl SdlInputManager {
         );
     }
 
-    pub fn add_scroll(&mut self, scroll: (i32, i32)) {
+    pub fn add_scroll(&mut self, scroll: (f32, f32)) {
         self.scroll = (
             self.scroll.0 + scroll.0,
             self.scroll.1 + scroll.1

@@ -45,16 +45,24 @@ impl Camera {
     }
 
     #[must_use]
-    pub fn position(&self) -> &glm::Vec3 { &self.position }
+    pub fn position(&self) -> &glm::Vec3 {
+        &self.position
+    }
 
     #[must_use]
-    pub fn zoom(&self) -> f32 { self.zoom }
+    pub fn zoom(&self) -> f32 {
+        self.zoom
+    }
 
     pub fn view_matrix(&self) -> glm::Mat4 {
         glm::look_at(&self.position, &(self.position + self.front), &self.up)
     }
 
-    pub fn process_keyboard<T: Now + DurationSince + Copy>(&mut self, movement_direction: MovementDirection, time: &Time<T>) {
+    pub fn process_keyboard<T: Now + DurationSince + Copy>(
+        &mut self,
+        movement_direction: MovementDirection,
+        time: &Time<T>,
+    ) {
         let velocity = time.duration().as_secs_f32() * self.movement_speed;
         match movement_direction {
             MovementDirection::FORWARD => self.position += self.front * velocity,

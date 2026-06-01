@@ -1,41 +1,18 @@
 use super::closure_event_handler::ClosureEventHandler;
 use super::EventHandler;
+use super::Monoid;
 use sdl2::event::Event;
 use sdl2::keyboard::{Mod, Scancode};
 use sdl2::mouse::MouseButton;
-
-pub trait Monoid {
-    fn empty() -> Self;
-
-    fn combine(&self, other: &Self) -> Self;
-}
-
-impl Monoid for () {
-    fn empty() -> Self {}
-
-    fn combine(&self, _other: &Self) -> Self {}
-}
-
-impl<T: Clone> Monoid for Vec<T> {
-    fn empty() -> Self {
-        Self::new()
-    }
-
-    fn combine(&self, other: &Self) -> Self {
-        let mut combined = self.clone();
-        combined.extend_from_slice(other);
-        combined
-    }
-}
 
 pub struct Sdl2EventHandlers<R: Monoid = ()> {
     handlers: Vec<Box<dyn EventHandler<Event, R>>>,
 }
 
 impl<R: Monoid> EventHandler<Event, R> for Sdl2EventHandlers<R> {
-    fn handle_event(&mut self, event: &Event) -> R {
+    fn handle_event(&mut self, event: Event) -> R {
         self.handlers.iter_mut().fold(R::empty(), |acc, handler| {
-            let result = handler.handle_event(event);
+            let result = handler.handle_event(event.clone());
             acc.combine(&result)
         })
     }
@@ -46,6 +23,11 @@ pub struct MouseMotionEvent {
     pub y: i32,
     pub delta_x: i32,
     pub delta_y: i32,
+}
+
+pub struct MouseWheelEvent {
+    pub x: f32,
+    pub y: f32,
 }
 
 impl<R: Monoid + 'static> Sdl2EventHandlers<R> {
@@ -110,34 +92,6 @@ impl<R: Monoid + 'static> Sdl2EventHandlers<R> {
         });
     }
 
-    pub fn add_keydown_handler<F: FnMut(Mod) -> R + 'static>(
-        &mut self,
-        scancode: Scancode,
-        mut closure: F,
-    ) {
-        self.add_all_keydown_handler(move |sc, keymod| {
-            if sc == scancode {
-                closure(keymod)
-            } else {
-                R::empty()
-            }
-        });
-    }
-
-    pub fn add_keyup_handler<F: FnMut(Mod) -> R + 'static>(
-        &mut self,
-        scancode: Scancode,
-        mut closure: F,
-    ) {
-        self.add_all_keyup_handler(move |sc, keymod| {
-            if sc == scancode {
-                closure(keymod)
-            } else {
-                R::empty()
-            }
-        });
-    }
-
     pub fn add_all_mouse_button_down_handler<F: FnMut(MouseButton) -> R + 'static>(
         &mut self,
         mut closure: F,
@@ -164,34 +118,6 @@ impl<R: Monoid + 'static> Sdl2EventHandlers<R> {
         });
     }
 
-    pub fn add_mouse_button_down_handler<F: FnMut() -> R + 'static>(
-        &mut self,
-        mouse_btn: MouseButton,
-        mut closure: F,
-    ) {
-        self.add_all_mouse_button_down_handler(move |mb| {
-            if mb == mouse_btn {
-                closure()
-            } else {
-                R::empty()
-            }
-        });
-    }
-
-    pub fn add_mouse_button_up_handler<F: FnMut() -> R + 'static>(
-        &mut self,
-        mouse_btn: MouseButton,
-        mut closure: F,
-    ) {
-        self.add_all_mouse_button_up_handler(move |mb| {
-            if mb == mouse_btn {
-                closure()
-            } else {
-                R::empty()
-            }
-        });
-    }
-
     pub fn add_mouse_motion_handler<F: FnMut(MouseMotionEvent) -> R + 'static>(
         &mut self,
         mut closure: F,
@@ -206,6 +132,27 @@ impl<R: Monoid + 'static> Sdl2EventHandlers<R> {
                     y,
                     delta_x: xrel,
                     delta_y: yrel,
+                })
+            } else {
+                R::empty()
+            }
+        });
+    }
+
+    pub fn add_mouse_wheel_handler<F: FnMut(MouseWheelEvent) -> R + 'static>(
+        &mut self,
+        mut closure: F,
+    ) {
+        self.add_closure_handler(move |event| {
+            if let &Event::MouseWheel {
+                precise_x,
+                precise_y,
+                ..
+            } = event
+            {
+                closure(MouseWheelEvent {
+                    x: precise_x,
+                    y: precise_y,
                 })
             } else {
                 R::empty()

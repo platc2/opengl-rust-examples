@@ -9,8 +9,8 @@ use anyhow::Result;
 
 use camera::{Camera, MovementDirection};
 use renderer::application;
-use renderer::application::Application;
-use renderer::input_manager::{InputManager, Key};
+use renderer::application::{App, Application};
+use renderer::input::{InputManager, Key};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::time::Time;
 use utils::gl;
@@ -25,13 +25,74 @@ struct State {
     camera: Camera,
 }
 
+impl App for State {
+    fn new() -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let cube = utils::primitives::cube();
+        let vertex_data = cube.as_f32_slice();
+
+        let vertex_array_object = gl::create_vertex_array();
+        gl::bind_vertex_array(vertex_array_object);
+
+        let triangle_vbo = gl::create_buffer();
+        gl::bind_buffer(gl::BufferTarget::ARRAY_BUFFER, triangle_vbo);
+        gl::buffer_data(
+            gl::BufferTarget::ARRAY_BUFFER,
+            vertex_data,
+            gl::BufferUsage::STATIC_DRAW,
+        );
+
+        gl::vertex_attrib_pointer(
+            0,
+            gl::ComponentSize::SIZE_3,
+            gl::ComponentType::FLOAT,
+            false,
+            size_of::<f32>() * 8,
+            0,
+        );
+        gl::enable_vertex_attrib_array(0);
+        gl::vertex_attrib_pointer(
+            1,
+            gl::ComponentSize::SIZE_2,
+            gl::ComponentType::FLOAT,
+            false,
+            size_of::<f32>() * 8,
+            size_of::<f32>() * 6,
+        );
+        gl::enable_vertex_attrib_array(1);
+        gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);
+
+        let cube_program = utils::program(
+            include_str!("../assets/cube.vert"),
+            include_str!("../assets/cube.frag"),
+        )?;
+
+        let light_program = utils::program(
+            include_str!("../assets/light.vert"),
+            include_str!("../assets/light.frag"),
+        )?;
+
+        Ok(Self {
+            vertex_array_object,
+            cube_program,
+            light_program,
+
+            camera: Camera::new(glm::vec3(0., 0., 3.), glm::vec3(0., 1., 0.), -90., 0.),
+        })
+    }
+}
+
 impl Application for State {
     fn tick(&mut self, time: &Time<Instant>, input_manager: &dyn InputManager) {
         if input_manager.key_down(Key::W) {
-            self.camera.process_keyboard(MovementDirection::FORWARD, time);
+            self.camera
+                .process_keyboard(MovementDirection::FORWARD, time);
         }
         if input_manager.key_down(Key::S) {
-            self.camera.process_keyboard(MovementDirection::BACKWARD, time);
+            self.camera
+                .process_keyboard(MovementDirection::BACKWARD, time);
         }
         if input_manager.key_down(Key::A) {
             self.camera.process_keyboard(MovementDirection::LEFT, time);
@@ -41,7 +102,8 @@ impl Application for State {
         }
 
         let mouse_movement = input_manager.mouse_movement();
-        self.camera.process_mouse_movement((mouse_movement.0 as _, -mouse_movement.1 as _), true);
+        self.camera
+            .process_mouse_movement((mouse_movement.0 as _, -mouse_movement.1 as _), true);
 
         let (_, scroll_y) = input_manager.scroll();
         self.camera.process_mouse_scroll(scroll_y as _);
@@ -59,33 +121,51 @@ impl Application for State {
 
         gl::use_program(self.cube_program);
         let model = glm::Mat4::identity();
-        gl::uniform_matrix_4fv(gl::uniform_location(self.cube_program, "projection"), false, glm::value_ptr(&projection));
-        gl::uniform_matrix_4fv(gl::uniform_location(self.cube_program, "view"), false, glm::value_ptr(&view));
-        gl::uniform_matrix_4fv(gl::uniform_location(self.cube_program, "model"), false, glm::value_ptr(&model));
-        gl::uniform_3fv(gl::uniform_location(self.cube_program, "objectColor"), glm::value_ptr(&glm::vec3(1., 0.5, 0.31)));
-        gl::uniform_3fv(gl::uniform_location(self.cube_program, "lightColor"), glm::value_ptr(&glm::vec3(1., 1., 1.)));
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.cube_program, "projection"),
+            false,
+            glm::value_ptr(&projection),
+        );
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.cube_program, "view"),
+            false,
+            glm::value_ptr(&view),
+        );
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.cube_program, "model"),
+            false,
+            glm::value_ptr(&model),
+        );
+        gl::uniform_3fv(
+            gl::uniform_location(self.cube_program, "objectColor"),
+            glm::value_ptr(&glm::vec3(1., 0.5, 0.31)),
+        );
+        gl::uniform_3fv(
+            gl::uniform_location(self.cube_program, "lightColor"),
+            glm::value_ptr(&glm::vec3(1., 1., 1.)),
+        );
         gl::draw_arrays(gl::DrawMode::TRIANGLES, 0, 36);
 
         gl::use_program(self.light_program);
         let model = glm::Mat4::identity();
         let model = glm::translate(&model, &glm::vec3(1.2, 1., 2.));
         let model = glm::scale(&model, &glm::vec3(0.2, 0.2, 0.2));
-        gl::uniform_matrix_4fv(gl::uniform_location(self.light_program, "projection"), false, glm::value_ptr(&projection));
-        gl::uniform_matrix_4fv(gl::uniform_location(self.light_program, "view"), false, glm::value_ptr(&view));
-        gl::uniform_matrix_4fv(gl::uniform_location(self.light_program, "model"), false, glm::value_ptr(&model));
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.light_program, "projection"),
+            false,
+            glm::value_ptr(&projection),
+        );
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.light_program, "view"),
+            false,
+            glm::value_ptr(&view),
+        );
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.light_program, "model"),
+            false,
+            glm::value_ptr(&model),
+        );
         gl::draw_arrays(gl::DrawMode::TRIANGLES, 0, 36);
-    }
-}
-
-impl State {
-    pub fn new(vertex_array_object: gl::VertexArrayId, cube_program: gl::ProgramId, light_program: gl::ProgramId) -> Self {
-        Self {
-            vertex_array_object,
-            cube_program,
-            light_program,
-
-            camera: Camera::new(glm::vec3(0., 0., 3.), glm::vec3(0., 1., 0.), -90., 0.),
-        }
     }
 }
 
@@ -96,82 +176,5 @@ pub fn main() -> Result<()> {
         &OpenGLVersion::of(3, 3),
     )?;
 
-    let vertex_data: [f32; 180] = [
-        -0.5, -0.5, -0.5, 0., 0.,
-        0.5, -0.5, -0.5, 1., 0.,
-        0.5, 0.5, -0.5, 1., 1.,
-        0.5, 0.5, -0.5, 1., 1.,
-        -0.5, 0.5, -0.5, 0., 1.,
-        -0.5, -0.5, -0.5, 0., 0.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        0.5, -0.5, 0.5, 1., 0.,
-        0.5, 0.5, 0.5, 1., 1.,
-        0.5, 0.5, 0.5, 1., 1.,
-        -0.5, 0.5, 0.5, 0., 1.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        -0.5, 0.5, 0.5, 1., 0.,
-        -0.5, 0.5, -0.5, 1., 1.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        -0.5, 0.5, 0.5, 1., 0.,
-        0.5, 0.5, 0.5, 1., 0.,
-        0.5, 0.5, -0.5, 1., 1.,
-        0.5, -0.5, -0.5, 0., 1.,
-        0.5, -0.5, -0.5, 0., 1.,
-        0.5, -0.5, 0.5, 0., 0.,
-        0.5, 0.5, 0.5, 1., 0.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        0.5, -0.5, -0.5, 1., 1.,
-        0.5, -0.5, 0.5, 1., 0.,
-        0.5, -0.5, 0.5, 1., 0.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        -0.5, 0.5, -0.5, 0., 1.,
-        0.5, 0.5, -0.5, 1., 1.,
-        0.5, 0.5, 0.5, 1., 0.,
-        0.5, 0.5, 0.5, 1., 0.,
-        -0.5, 0.5, 0.5, 0., 0.,
-        -0.5, 0.5, -0.5, 0., 1.
-    ];
-
-    let vertex_array_object = gl::create_vertex_array();
-    gl::bind_vertex_array(vertex_array_object);
-
-    let triangle_vbo = gl::create_buffer();
-    gl::bind_buffer(gl::BufferTarget::ARRAY_BUFFER, triangle_vbo);
-    gl::buffer_data(gl::BufferTarget::ARRAY_BUFFER, &vertex_data, gl::BufferUsage::STATIC_DRAW);
-
-    gl::vertex_attrib_pointer(
-        0,
-        gl::ComponentSize::SIZE_3,
-        gl::ComponentType::FLOAT,
-        false,
-        size_of::<f32>() * 5,
-        0);
-    gl::enable_vertex_attrib_array(0);
-    gl::vertex_attrib_pointer(
-        1,
-        gl::ComponentSize::SIZE_2,
-        gl::ComponentType::FLOAT,
-        false,
-        size_of::<f32>() * 5,
-        size_of::<f32>() * 3,
-    );
-    gl::enable_vertex_attrib_array(1);
-    gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);
-
-    let cube_program = utils::program(
-        include_str!("../assets/cube.vert"),
-        include_str!("../assets/cube.frag"),
-    )?;
-
-    let light_program = utils::program(
-        include_str!("../assets/light.vert"),
-        include_str!("../assets/light.frag"),
-    )?;
-
-    let state = State::new(vertex_array_object, cube_program, light_program);
-
-    application::main_loop(context, state)
+    application::start::<State>(context)
 }

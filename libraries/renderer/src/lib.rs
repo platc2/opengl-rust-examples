@@ -10,12 +10,11 @@ pub use renderer::*;
 
 mod renderer;
 
-#[cfg(feature = "imgui")]
 mod imgui_impl;
 
+pub mod application;
+mod event;
+pub mod input;
 pub mod renderer_context;
 pub mod resources;
-pub mod application;
 pub mod time;
-pub mod input_manager;
-mod event;

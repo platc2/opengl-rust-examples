@@ -22,18 +22,13 @@ impl View for GammaWindow {
     }
 
     fn show(&mut self, ui: &Ui) {
-        ui.window("Settings")
-            .save_settings(false)
-            .always_auto_resize(true)
-            .build(|| {
-                ui.slider("Gamma", GAMMA_MIN, GAMMA_MAX, &mut *self.gamma.borrow_mut());
-                if ui.button("Reset (1.0)") {
-                    *self.gamma.borrow_mut() = 1_f32;
-                }
-                ui.same_line();
-                if ui.button("Reset (2.2)") {
-                    *self.gamma.borrow_mut() = 2.2_f32;
-                }
-            });
+        ui.slider("Gamma", GAMMA_MIN, GAMMA_MAX, &mut *self.gamma.borrow_mut());
+        if ui.button("Reset (1.0)") {
+            *self.gamma.borrow_mut() = 1_f32;
+        }
+        ui.same_line();
+        if ui.button("Reset (2.2)") {
+            *self.gamma.borrow_mut() = 2.2_f32;
+        }
     }
 }

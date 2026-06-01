@@ -16,7 +16,9 @@ pub trait InputManager {
     fn key_down(&self, key: Key) -> bool;
 
     #[must_use]
-    fn key_up(&self, key: Key) -> bool { !self.key_down(key) }
+    fn key_up(&self, key: Key) -> bool {
+        !self.key_down(key)
+    }
 
     #[must_use]
     fn mouse_position(&self) -> (i32, i32);
@@ -25,5 +27,5 @@ pub trait InputManager {
     fn mouse_movement(&self) -> (i32, i32);
 
     #[must_use]
-    fn scroll(&self) -> (i32, i32);
+    fn scroll(&self) -> (f32, f32);
 }

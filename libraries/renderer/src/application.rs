@@ -1,19 +1,14 @@
-use crate::event;
-#[cfg(feature = "imgui")]
+use crate::event::{handle_events, handle_events_combine, DomainEvent, EventHandler};
 use crate::imgui_impl::Imgui;
-use crate::input_manager::{InputManager, Key, SdlInputManager};
+use crate::input::{InputManager, Key, SdlInputManager};
 use crate::renderer_context::RendererContext;
 use crate::time::Time;
-use anyhow::{anyhow, Result};
-use event::EventHandler;
-#[cfg(feature = "imgui")]
+use anyhow::Result;
 use imgui::Ui;
-use sdl2::keyboard::{Mod, Scancode};
-use sdl2::mouse::MouseButton;
-use std::cell::{Ref, RefCell};
+pub(crate) use sdl2::mouse::MouseButton;
+use std::cell::RefCell;
 use std::rc::Rc;
 
-#[cfg(feature = "imgui")]
 pub trait View {
     fn name(&self) -> &str;
 
@@ -25,9 +20,8 @@ pub trait Application {
     fn init(&mut self, context: &mut RendererContext) {}
 
     #[allow(unused)]
-    fn tick(&mut self, time: &Time<std::time::Instant>, input_manager: Ref<dyn InputManager>) {}
+    fn tick(&mut self, time: &Time<std::time::Instant>, input_manager: &dyn InputManager) {}
 
-    #[cfg(feature = "imgui")]
     fn gui(&mut self, #[allow(unused)] ui: &Ui) {}
 
     fn views(&mut self) -> &mut [Box<dyn View>] {
@@ -39,190 +33,204 @@ pub trait Application {
     }
 }
 
-trait App {
-    fn new() -> Self;
+pub trait App {
+    fn new() -> anyhow::Result<Self>
+    where
+        Self: std::marker::Sized;
 }
 
-pub fn start<T: App>() -> Result<()> {
-    let _ = T::new();
-
-    Ok(())
+pub(crate) struct AppContext {
+    pub time: Time<std::time::Instant>,
+    pub input_manager: Rc<RefCell<SdlInputManager>>,
+    application_state: ApplicationState,
+    quit_requested: bool,
+    pub view_states: std::collections::HashMap<String, bool>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum ApplicationState {
-    Menu,
-    Playing,
-}
+impl AppContext {
+    pub fn new<T: Application>(application: &mut T) -> Self {
+        let mut view_states = std::collections::HashMap::new();
+        for view in application.views() {
+            view_states.insert(view.name().to_owned(), false);
+        }
 
-enum DomainEvent {
-    QuitRequested,
-    KeyDown(Scancode, Mod),
-    KeyUp(Scancode, Mod),
-    MouseMotion { x: i16, y: i16, delta_x: i16, delta_y: i16 },
-    MouseButtonDown(MouseButton),
-    MouseButtonUp(MouseButton),
-    TextInput(String)
-}
-
-// FIXME
-#[allow(clippy::too_many_lines)]
-pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -> Result<()> {
-    let mut time: Time<std::time::Instant> = Time::default();
-    let mut event_pump = context.sdl().event_pump().map_err(|e| anyhow!(e))?;
-    #[cfg(feature = "imgui")]
-    let mut quit = false;
-    let imgui_context = Rc::new(RefCell::new(Imgui::init()));
-    let input_manager = Rc::new(RefCell::new(SdlInputManager::default()));
-
-    // Initialise application state
-    let application_state = Rc::new(RefCell::new(ApplicationState::Playing));
-    let quit_requested = Rc::new(RefCell::new(false));
-
-    // Play state handler
-    let mut play_event_handler = event::Sdl2EventHandlers::new();
-    play_event_handler.add_quit_handler({
-        let quit_requested = quit_requested.clone();
-        move || *quit_requested.borrow_mut() = true
-    });
-    play_event_handler.add_keydown_handler(Scancode::Escape, {
-        let application_state = application_state.clone();
-        move |_| *application_state.borrow_mut() = ApplicationState::Menu
-    });
-    play_event_handler.add_all_keydown_handler({
-        let input_manager = input_manager.clone();
-        move |scancode, keymod| {
-            input_manager.borrow_mut().set_key_down(scancode);
+        Self {
+            time: Time::default(),
+            input_manager: Rc::new(RefCell::new(SdlInputManager::default())),
+            application_state: ApplicationState::Playing,
+            quit_requested: false,
+            view_states,
         }
-    });
-    play_event_handler.add_all_keyup_handler({
-        let input_manager = input_manager.clone();
-        move |scancode, keymod| {
-            input_manager.borrow_mut().set_key_up(scancode);
-        }
-    });
-    play_event_handler.add_mouse_motion_handler({
-        let input_manager = input_manager.clone();
-        move |evt| {
-            input_manager
-                .borrow_mut()
-                .set_mouse_position((evt.x, evt.y));
-            input_manager
-                .borrow_mut()
-                .add_mouse_movement((evt.delta_x, evt.delta_y));
-        }
-    });
-
-    // Menu state handler
-    let menu_key_changes = Rc::new(RefCell::new(std::collections::HashMap::<Key, bool>::new()));
-    let menu_text_input = Rc::new(RefCell::new(Vec::new()));
-    let mut menu_event_handler = event::Sdl2EventHandlers::new();
-    menu_event_handler.add_quit_handler({
-        let quit_requested = quit_requested.clone();
-        move || *quit_requested.borrow_mut() = true
-    });
-    menu_event_handler.add_keydown_handler(Scancode::Escape, {
-        let quit_requested = quit_requested.clone();
-        let imgui_context = imgui_context.clone();
-        move |_| {
-            if (!imgui_context.borrow().want_capture_keyboard()) {
-                *quit_requested.borrow_mut() = true;
-            }
-        }
-    });
-    menu_event_handler.add_mouse_button_down_handler(MouseButton::Left, {
-        let application_state = application_state.clone();
-        let imgui_context = imgui_context.clone();
-        move || {
-            if !imgui_context.borrow().want_capture_mouse() {
-                *application_state.borrow_mut() = ApplicationState::Playing;
-            }
-        }
-    });
-    menu_event_handler.add_all_keydown_handler({
-        let menu_key_changes = menu_key_changes.clone();
-        move |scancode, keymod| {
-            if let Ok(k) = scancode.try_into() {
-                menu_key_changes.borrow_mut().insert(k, true);
-                insert_mod_keys(&mut menu_key_changes.borrow_mut(), keymod);
-            }
-        }
-    });
-    menu_event_handler.add_all_keyup_handler({
-        let menu_key_changes = menu_key_changes.clone();
-        move |scancode, keymod| {
-            if let Ok(k) = scancode.try_into() {
-                menu_key_changes.borrow_mut().insert(k, false);
-                insert_mod_keys(&mut menu_key_changes.borrow_mut(), keymod);
-            }
-        }
-    });
-    menu_event_handler.add_text_input_handler({
-        let menu_text_input = menu_text_input.clone();
-        move |text| menu_text_input.borrow_mut().push(text)
-    });
-
-    let mut view_states = std::collections::HashMap::new();
-    for view in application.views() {
-        view_states.insert(view.name().to_owned(), false);
     }
 
-    while !application.quit() && !quit {
-        time.update();
+    pub const fn set_application_state(&mut self, state: ApplicationState) {
+        self.application_state = state;
+    }
 
-        let application_state = *application_state.borrow();
-        if application_state == ApplicationState::Playing {
-            input_manager.borrow_mut().update();
+    #[must_use]
+    pub const fn application_state(&self) -> ApplicationState {
+        self.application_state
+    }
+
+    pub const fn reset_quit(&mut self) {
+        self.quit_requested = false;
+    }
+
+    pub const fn request_quit(&mut self) {
+        self.quit_requested = true;
+    }
+
+    #[must_use]
+    pub const fn is_quit_requested(&self) -> bool {
+        self.quit_requested
+    }
+
+    pub fn update(&mut self) {
+        self.time.update();
+        if self.application_state == ApplicationState::Playing {
+            self.input_manager.borrow_mut().update();
         }
+    }
+}
 
-        imgui_context.borrow().want_capture_mouse();
+struct DomainEventPreProcessor {
+    app_context: Rc<RefCell<AppContext>>,
+}
 
-        menu_key_changes.borrow_mut().clear();
-        menu_text_input.borrow_mut().clear();
+impl DomainEventPreProcessor {
+    pub const fn new(app_context: Rc<RefCell<AppContext>>) -> Self {
+        Self { app_context }
+    }
+}
 
-        for event in event_pump.poll_iter() {
-            match application_state {
-                ApplicationState::Playing => play_event_handler.handle_event(&event),
-                ApplicationState::Menu => menu_event_handler.handle_event(&event),
+impl EventHandler<DomainEvent, DomainEvent> for DomainEventPreProcessor {
+    fn handle_event(&mut self, event: DomainEvent) -> DomainEvent {
+        use ApplicationState::{Menu, Playing};
+        use DomainEvent::{KeyUp, MouseButtonUp, QuitRequested, StateSwitch};
+        let app_state = self.app_context.borrow().application_state;
+        let in_menu = app_state == Menu;
+        match event {
+            KeyUp(Key::ESCAPE) if in_menu => QuitRequested,
+            KeyUp(Key::ESCAPE) => StateSwitch(Menu),
+            MouseButtonUp(MouseButton::Left) if in_menu => StateSwitch(Playing),
+            _ => event,
+        }
+    }
+}
+
+struct DomainEventHandler {
+    app_context: Rc<RefCell<AppContext>>,
+    renderer_context: Rc<RefCell<RendererContext>>,
+}
+
+impl DomainEventHandler {
+    pub const fn new(
+        app_context: Rc<RefCell<AppContext>>,
+        renderer_context: Rc<RefCell<RendererContext>>,
+    ) -> Self {
+        Self {
+            app_context,
+            renderer_context,
+        }
+    }
+}
+
+impl EventHandler<DomainEvent, ()> for DomainEventHandler {
+    fn handle_event(&mut self, event: DomainEvent) {
+        use ApplicationState::Playing;
+        let app_state = self.app_context.borrow().application_state;
+        let playing = app_state == Playing;
+        match event {
+            DomainEvent::QuitRequested => self.app_context.borrow_mut().request_quit(),
+            DomainEvent::KeyDown(key) if playing => self
+                .app_context
+                .borrow_mut()
+                .input_manager
+                .borrow_mut()
+                .set_key_down(key.sdl),
+            DomainEvent::KeyUp(key) if playing => self
+                .app_context
+                .borrow_mut()
+                .input_manager
+                .borrow_mut()
+                .set_key_up(key.sdl),
+            DomainEvent::MouseMotion {
+                x,
+                y,
+                delta_x,
+                delta_y,
+            } if playing => {
+                self.app_context
+                    .borrow_mut()
+                    .input_manager
+                    .borrow_mut()
+                    .set_mouse_position((x, y));
+                self.app_context
+                    .borrow_mut()
+                    .input_manager
+                    .borrow_mut()
+                    .add_mouse_movement((delta_x, delta_y));
             }
+            DomainEvent::MouseWheel { x, y } if playing => {
+                self.app_context
+                    .borrow_mut()
+                    .input_manager
+                    .borrow_mut()
+                    .add_scroll((x, y));
+            }
+            DomainEvent::StateSwitch(state) => {
+                self.app_context.borrow_mut().set_application_state(state);
+                self.renderer_context
+                    .borrow_mut()
+                    .set_relative_mouse_mode(matches!(state, Playing));
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn start<T: App + Application>(renderer_context: RendererContext) -> Result<()> {
+    let mut application = T::new()?;
+    let context = Rc::new(RefCell::new(renderer_context));
+
+    application.init(&mut context.borrow_mut());
+
+    let mut quit = false;
+    let app_ctx = Rc::new(RefCell::new(AppContext::new(&mut application)));
+    let imgui_context = Rc::new(RefCell::new(Imgui::init()));
+    let mut domain_event_preprocessor = DomainEventPreProcessor::new(app_ctx.clone());
+    let mut domain_event_handler = DomainEventHandler::new(app_ctx.clone(), context.clone());
+
+    while !application.quit() && !quit {
+        app_ctx.borrow_mut().update();
+
+        imgui_context.borrow_mut().update(
+            app_ctx.borrow().time.duration(),
+            context.borrow().window_dimension(),
+        );
+
+        let domain_events = context.borrow_mut().events();
+
+        let remaining = match app_ctx.borrow().application_state {
+            ApplicationState::Playing => domain_events.clone(),
+            ApplicationState::Menu => {
+                handle_events_combine(&mut *imgui_context.borrow_mut(), domain_events)
+            }
+        };
+
+        let events = handle_events(&mut domain_event_preprocessor, remaining);
+        handle_events(&mut domain_event_handler, events);
+
+        {
+            let app_ctx = app_ctx.borrow();
+            let input_manager = app_ctx.input_manager.borrow();
+            application.tick(&app_ctx.time, &*input_manager);
         }
 
-        match application_state {
-            ApplicationState::Playing => context.sdl().mouse().set_relative_mouse_mode(true),
-            ApplicationState::Menu => context.sdl().mouse().set_relative_mouse_mode(false),
-        }
-
-        let mouse_state = sdl2::mouse::MouseState::new(&event_pump);
-        let mouse_pos: (i16, i16) = (mouse_state.x() as _, mouse_state.y() as _);
-        if application_state == ApplicationState::Playing {
-            input_manager
-                .borrow_mut()
-                .set_mouse_position((mouse_state.x(), mouse_state.y()));
-        }
-
-        let (w, h) = context.window().drawable_size();
-        #[cfg(feature = "imgui")]
-        match application_state {
-            ApplicationState::Playing => imgui_context
-                .borrow_mut()
-                .prepare_unfocused([w as _, h as _], time.duration()),
-            ApplicationState::Menu => imgui_context.borrow_mut().prepare(
-                [w as _, h as _],
-                Some([mouse_pos.0.into(), mouse_pos.1.into()]),
-                Some([mouse_state.left(), mouse_state.right()]),
-                &menu_key_changes.borrow(),
-                &menu_text_input.borrow(),
-                time.duration(),
-            ),
-        }
-
-        application.tick(&time, input_manager.borrow());
-
-        #[cfg(feature = "imgui")]
         imgui_context.borrow_mut().render(|ui| {
             application.gui(ui);
 
-            if *quit_requested.borrow() {
+            if app_ctx.borrow().is_quit_requested() {
                 ui.open_popup("Quit Application");
             }
 
@@ -239,7 +247,7 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
                     ui.same_line();
 
                     if ui.button("No") {
-                        *quit_requested.borrow_mut() = false;
+                        app_ctx.borrow_mut().reset_quit();
                         ui.close_current_popup();
                     }
                 });
@@ -247,19 +255,22 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
             ui.main_menu_bar(|| {
                 ui.menu("File", || {
                     if ui.menu_item("Exit") {
-                        *quit_requested.borrow_mut() = true;
+                        app_ctx.borrow_mut().request_quit();
                     }
                 });
 
-                ui.menu("Views", || {
-                    for (view_name, view_state) in view_states.iter_mut() {
-                        if ui.menu_item_config(view_name).selected(*view_state).build() {
-                            *view_state = !*view_state;
+                {
+                    let view_states = &mut app_ctx.borrow_mut().view_states;
+                    ui.menu_with_enabled("Views", !view_states.is_empty(), || {
+                        for (view_name, view_state) in view_states.iter_mut() {
+                            if ui.menu_item_config(view_name).selected(*view_state).build() {
+                                *view_state = !*view_state;
+                            }
                         }
-                    }
-                });
+                    });
+                }
 
-                let status_text = format!("State: {application_state:?}");
+                let status_text = format!("State: {:?}", app_ctx.borrow().application_state());
                 let text_size = ui.calc_text_size(&status_text);
                 let available = ui.content_region_avail()[0];
                 ui.same_line();
@@ -269,29 +280,36 @@ pub fn main_loop<T: Application>(context: RendererContext, mut application: T) -
             });
 
             for view in application.views() {
-                if *view_states.entry(view.name().to_owned()).or_insert(false) {
-                    view.show(ui);
+                if *app_ctx
+                    .borrow_mut()
+                    .view_states
+                    .entry(view.name().to_owned())
+                    .or_insert(false)
+                {
+                    let name = view.name().to_owned();
+                    ui.window(name)
+                        .save_settings(false)
+                        .always_auto_resize(true)
+                        .opened(
+                            app_ctx
+                                .borrow_mut()
+                                .view_states
+                                .get_mut(view.name())
+                                .unwrap(),
+                        )
+                        .build(|| view.show(ui));
                 }
             }
         });
 
-        context.window().gl_swap_window();
+        context.borrow_mut().swap_buffers();
     }
 
     Ok(())
 }
 
-fn insert_mod_keys(key_changes: &mut std::collections::HashMap<Key, bool>, keymod: Mod) {
-    key_changes.insert(
-        Key::MOD_CONTROL,
-        keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD),
-    );
-    key_changes.insert(
-        Key::MOD_SHIFT,
-        keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD),
-    );
-    key_changes.insert(
-        Key::MOD_ALT,
-        keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD),
-    );
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ApplicationState {
+    Menu,
+    Playing,
 }

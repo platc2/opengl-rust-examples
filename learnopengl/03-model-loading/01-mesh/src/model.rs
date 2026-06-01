@@ -25,14 +25,9 @@ pub struct Model {
 
 impl Model {
     pub fn new(path: &str) -> Self {
-        let scene = Scene::from_file(path, vec![
-            PostProcess::Triangulate,
-            PostProcess::FlipUVs,
-        ])
+        let scene = Scene::from_file(path, vec![PostProcess::Triangulate, PostProcess::FlipUVs])
             .expect("Failed to load scene!");
 
-        println!("{:?}", path);
-        println!("{:?}", path.rfind("/"));
         let directory = if let Some(index) = path.rfind("/") {
             path[..index].to_owned()
         } else {
@@ -69,19 +64,14 @@ impl Model {
         let mut textures: Vec<Texture> = Vec::new();
 
         for (idx, (vertex, normal)) in zip(&mesh.vertices, &mesh.normals).enumerate() {
-            let position = glm::vec3(
-                vertex.x, vertex.y, vertex.z);
-            let normal = glm::vec3(
-                normal.x, normal.y, normal.z);
-            let tex_coord = mesh.texture_coords[0].clone()
+            let position = glm::vec3(vertex.x, vertex.y, vertex.z);
+            let normal = glm::vec3(normal.x, normal.y, normal.z);
+            let tex_coord = mesh.texture_coords[0]
+                .clone()
                 .map(|tex_coord| tex_coord[idx])
                 .map(|tex_coord| glm::vec2(tex_coord.x, tex_coord.y));
 
-            vertices.push(Vertex::new(
-                position,
-                normal,
-                tex_coord,
-            ));
+            vertices.push(Vertex::new(position, normal, tex_coord));
         }
 
         for face in &mesh.faces {
@@ -90,11 +80,14 @@ impl Model {
 
         let material = &scene.materials[mesh.material_index as usize];
         self.load_material_textures(material, &russimp::material::TextureType::Diffuse)
-            .iter().for_each(|texture| textures.push(texture.clone()));
+            .iter()
+            .for_each(|texture| textures.push(texture.clone()));
         self.load_material_textures(material, &russimp::material::TextureType::Specular)
-            .iter().for_each(|texture| textures.push(texture.clone()));
+            .iter()
+            .for_each(|texture| textures.push(texture.clone()));
 
-        self.meshes.push(Mesh::new(vertices, &indices[..], &textures[..]));
+        self.meshes
+            .push(Mesh::new(vertices, &indices[..], &textures[..]));
     }
 
     pub fn draw(&self, shader_program: gl::ProgramId) {
@@ -103,16 +96,23 @@ impl Model {
         }
     }
 
-    fn load_material_textures(&mut self, material: &Material, texture_type: &russimp::material::TextureType) -> Vec<Texture> {
+    fn load_material_textures(
+        &mut self,
+        material: &Material,
+        texture_type: &russimp::material::TextureType,
+    ) -> Vec<Texture> {
         let mut result = Vec::new();
 
-        for property in material.properties.iter()
+        for property in material
+            .properties
+            .iter()
             .filter(|prop| prop.semantic == *texture_type)
-            .collect::<Vec<_>>() {
+            .collect::<Vec<_>>()
+        {
             let texture_type = match texture_type {
                 russimp::material::TextureType::Diffuse => TextureType::Diffuse,
                 russimp::material::TextureType::Specular => TextureType::Specular,
-                _ => return Vec::new()
+                _ => return Vec::new(),
             };
             let file_name = match &property.data {
                 PropertyTypeInfo::String(path) => path,
@@ -121,13 +121,17 @@ impl Model {
 
             let file = format!("{}/{}", self.directory, file_name);
 
-            let texture = if let Some(texture) = self.textures_loaded.iter().find(|t| t.path == file) {
-                texture.clone()
-            } else {
-                let id = texture_from_file(file.as_str())
-                    .unwrap();
-                Texture { id, texture_type, path: file }
-            };
+            let texture =
+                if let Some(texture) = self.textures_loaded.iter().find(|t| t.path == file) {
+                    texture.clone()
+                } else {
+                    let id = texture_from_file(file.as_str()).unwrap();
+                    Texture {
+                        id,
+                        texture_type,
+                        path: file,
+                    }
+                };
 
             result.push(texture.clone());
             self.textures_loaded.push(texture.clone());
