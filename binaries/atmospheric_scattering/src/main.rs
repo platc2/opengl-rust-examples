@@ -5,16 +5,15 @@ extern crate alloc;
 extern crate core;
 extern crate gl_bindings as gl;
 extern crate imgui;
-extern crate sdl2;
 
 use core::fmt::{Display, Formatter};
 use std::path::Path;
 
 use anyhow::{Context, Result};
 
-use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeFormat, VertexBinding};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
+use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeFormat, VertexBinding};
 
 use crate::state::State;
 

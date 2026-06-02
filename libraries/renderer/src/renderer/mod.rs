@@ -4,11 +4,12 @@ pub use self::render_pass::{RenderPass, VertexBinding};
 pub use self::shader::{Kind as ShaderKind, Shader};
 pub use self::texture::Texture;
 pub use self::vertex_attribute::{Format as VertexAttributeFormat, VertexAttribute};
+pub use self::labelled::Labelled;
 
+mod labelled;
 mod buffer;
 mod program;
 mod render_pass;
 mod shader;
 mod texture;
 mod vertex_attribute;
-

@@ -4,15 +4,17 @@
 extern crate alloc;
 extern crate core;
 extern crate gl_bindings as gl;
-extern crate sdl2;
 
 use std::path::Path;
 
 use anyhow::{Context, Result};
 
-use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute, VertexBinding};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
+use renderer::{
+    application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute,
+    VertexBinding,
+};
 
 use crate::state::State;
 
@@ -41,22 +43,24 @@ fn main() -> Result<()> {
 
     let vertex_buffer = initialize_vertices()?;
 
-    let vertex_shader = Shader::from_source(
-        &res.load_string("/shaders/basic.vert")?,
-        ShaderKind::Vertex)
-        .context("Failed to initialize vertex shader")?;
+    let vertex_shader =
+        Shader::from_source(&res.load_string("/shaders/basic.vert")?, ShaderKind::Vertex)
+            .context("Failed to initialize vertex shader")?;
     let fragment_shader = Shader::from_source(
         &res.load_string("/shaders/basic.frag")?,
-        ShaderKind::Fragment)
-        .context("Failed to initialize fragment shader")?;
+        ShaderKind::Fragment,
+    )
+    .context("Failed to initialize fragment shader")?;
     let tessellation_control_shader = Shader::from_source(
         &res.load_string("/shaders/basic.tesc")?,
-        ShaderKind::TessellationControl)
-        .context("Failed to initialize tessellation control shader")?;
+        ShaderKind::TessellationControl,
+    )
+    .context("Failed to initialize tessellation control shader")?;
     let tessellation_evaluation_shader = Shader::from_source(
         &res.load_string("/shaders/basic.tese")?,
-        ShaderKind::TessellationEvaluation)
-        .context("Failed to initialize tessellation evaluation shader")?;
+        ShaderKind::TessellationEvaluation,
+    )
+    .context("Failed to initialize tessellation evaluation shader")?;
 
     let vertex_bindings = [
         VertexBinding::new(
@@ -93,12 +97,21 @@ fn main() -> Result<()> {
 /// - Fail to initialize vertex buffer
 fn initialize_vertices() -> Result<Buffer> {
     let vertices = vec![
-        -0.5, -0.5,
-        1., 0., 0.,
-        0.5, -0.5,
-        0., 1., 0.,
-        0., -0.5 + (3f32.sqrt() / 2.),
-        0., 0., 1.,
+        -0.5,
+        -0.5,
+        1.,
+        0.,
+        0.,
+        0.5,
+        -0.5,
+        0.,
+        1.,
+        0.,
+        0.,
+        -0.5 + (3f32.sqrt() / 2.),
+        0.,
+        0.,
+        1.,
     ];
     let mut vertex_buffer = Buffer::allocate(
         BufferUsage::Vertex,

@@ -4,19 +4,116 @@ extern crate nalgebra_glm as glm;
 extern crate renderer;
 extern crate stb_image;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Instant;
 
 use anyhow::Result;
-
 use camera::{Camera, MovementDirection};
+use imgui::Ui;
 use renderer::application;
-use renderer::application::Application;
-use renderer::input_manager::{InputManager, Key};
+use renderer::application::{App, Application, View};
+use renderer::input::{InputManager, Key};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::time::Time;
 use utils::gl;
 
 mod camera;
+
+struct TextureSettings {
+    pub texture_factor: f32,
+    pub flip_face: bool,
+    pub texture_scale: f32,
+}
+
+impl Default for TextureSettings {
+    fn default() -> Self {
+        Self {
+            texture_factor: 0.2,
+            flip_face: false,
+            texture_scale: 1.,
+        }
+    }
+}
+
+struct TextureSettingsView {
+    settings: Rc<RefCell<TextureSettings>>,
+}
+
+impl TextureSettingsView {
+    pub fn new(settings: Rc<RefCell<TextureSettings>>) -> Self {
+        Self { settings }
+    }
+}
+
+impl View for TextureSettingsView {
+    fn name(&self) -> &str {
+        "Texture Settings"
+    }
+
+    fn show(&mut self, ui: &Ui) {
+        let mut settings = self.settings.borrow_mut();
+        ui.slider("Texture mix factor", 0., 1., &mut settings.texture_factor);
+        ui.checkbox("Flip face horizontally", &mut settings.flip_face);
+        ui.slider("Texture scale", 0.25, 4., &mut settings.texture_scale);
+    }
+}
+
+struct CubePositions {
+    positions: Vec<glm::Vec3>,
+}
+
+impl Default for CubePositions {
+    fn default() -> Self {
+        Self {
+            positions: vec![
+                glm::vec3(0., 0., 0.),
+                glm::vec3(2., 5., -15.),
+                glm::vec3(-1.5, -2.2, -2.5),
+                glm::vec3(-3.8, -2., -12.3),
+                glm::vec3(2.4, -0.4, -3.5),
+                glm::vec3(-1.7, 3., -7.5),
+                glm::vec3(1.3, -2., -2.5),
+                glm::vec3(1.5, 2., -2.5),
+                glm::vec3(1.5, 0.2, -1.5),
+                glm::vec3(-1.3, 1., -1.5),
+            ],
+        }
+    }
+}
+
+struct CubePositionsView {
+    positions: Rc<RefCell<CubePositions>>,
+}
+
+impl CubePositionsView {
+    fn new(positions: Rc<RefCell<CubePositions>>) -> Self {
+        Self { positions }
+    }
+}
+
+impl View for CubePositionsView {
+    fn name(&self) -> &str {
+        "Cube Positions"
+    }
+
+    fn show(&mut self, ui: &Ui) {
+        if ui.collapsing_header("Cubes", imgui::TreeNodeFlags::empty()) {
+            for (index, position) in self.positions.borrow_mut().positions.iter_mut().enumerate() {
+                ui.text(format!("Cube n°{index}"));
+                ui.same_line();
+                ui.input_float(format!("## cube-{index}-x"), &mut position.x)
+                    .build();
+                ui.same_line();
+                ui.input_float(format!("## cube-{index}-y"), &mut position.y)
+                    .build();
+                ui.same_line();
+                ui.input_float(format!("## cube-{index}-z"), &mut position.z)
+                    .build();
+            }
+        }
+    }
+}
 
 struct State {
     shader_program: gl::ProgramId,
@@ -24,21 +121,99 @@ struct State {
     container_texture: gl::TextureId,
     face_texture: gl::TextureId,
 
-    cubes: Vec<glm::Vec3>,
     camera: Camera,
 
-    texture_factor: f32,
-    flip_face: bool,
-    texture_scale: f32,
+    texture_settings: Rc<RefCell<TextureSettings>>,
+    cube_positions: Rc<RefCell<CubePositions>>,
+    views: Vec<Box<dyn View>>,
+}
+
+impl App for State {
+    fn new() -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let cube = utils::primitives::cube();
+        let vertex_data = cube.as_f32_slice();
+
+        let vertex_array_object = gl::create_vertex_array();
+        gl::bind_vertex_array(vertex_array_object);
+
+        let triangle_vbo = gl::create_buffer();
+        gl::bind_buffer(gl::BufferTarget::ARRAY_BUFFER, triangle_vbo);
+        gl::buffer_data(
+            gl::BufferTarget::ARRAY_BUFFER,
+            vertex_data,
+            gl::BufferUsage::STATIC_DRAW,
+        );
+
+        gl::vertex_attrib_pointer(
+            0,
+            gl::ComponentSize::SIZE_3,
+            gl::ComponentType::FLOAT,
+            false,
+            size_of::<f32>() * 8,
+            0,
+        );
+        gl::enable_vertex_attrib_array(0);
+        gl::vertex_attrib_pointer(
+            1,
+            gl::ComponentSize::SIZE_2,
+            gl::ComponentType::FLOAT,
+            false,
+            size_of::<f32>() * 8,
+            size_of::<f32>() * 6,
+        );
+        gl::enable_vertex_attrib_array(1);
+        gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);
+
+        let shader_program = utils::program(
+            include_str!("../assets/triangle.vert"),
+            include_str!("../assets/triangle.frag"),
+        )?;
+
+        let container_texture = utils::load_texture_2d(include_bytes!("../assets/container.jpg"))?;
+        let face_texture = utils::load_texture_2d(include_bytes!("../assets/awesomeface.png"))?;
+        gl::tex_parameter_iuiv(
+            gl::TextureTarget::TEXTURE_2D,
+            gl::TextureParameter::TEXTURE_WRAP_S,
+            &[gl::sys::MIRRORED_REPEAT],
+        );
+        gl::tex_parameter_iuiv(
+            gl::TextureTarget::TEXTURE_2D,
+            gl::TextureParameter::TEXTURE_WRAP_T,
+            &[gl::sys::REPEAT],
+        );
+
+        let texture_settings = Rc::new(RefCell::new(TextureSettings::default()));
+        let cube_positions = Rc::new(RefCell::new(CubePositions::default()));
+        Ok(Self {
+            shader_program,
+            vertex_array_object,
+            container_texture,
+            face_texture,
+
+            camera: Camera::new(glm::vec3(0., 0., 3.), glm::vec3(0., 1., 0.), -90., 0.),
+
+            texture_settings: texture_settings.clone(),
+            cube_positions: cube_positions.clone(),
+            views: vec![
+                Box::new(TextureSettingsView::new(texture_settings.clone())),
+                Box::new(CubePositionsView::new(cube_positions.clone())),
+            ],
+        })
+    }
 }
 
 impl Application for State {
     fn tick(&mut self, time: &Time<Instant>, input_manager: &dyn InputManager) {
         if input_manager.key_down(Key::W) {
-            self.camera.process_keyboard(MovementDirection::FORWARD, time);
+            self.camera
+                .process_keyboard(MovementDirection::FORWARD, time);
         }
         if input_manager.key_down(Key::S) {
-            self.camera.process_keyboard(MovementDirection::BACKWARD, time);
+            self.camera
+                .process_keyboard(MovementDirection::BACKWARD, time);
         }
         if input_manager.key_down(Key::A) {
             self.camera.process_keyboard(MovementDirection::LEFT, time);
@@ -48,10 +223,11 @@ impl Application for State {
         }
 
         let mouse_movement = input_manager.mouse_movement();
-        self.camera.process_mouse_movement((mouse_movement.0 as _, -mouse_movement.1 as _), true);
+        self.camera
+            .process_mouse_movement((mouse_movement.0 as _, -mouse_movement.1 as _), true);
 
         let (_, scroll_y) = input_manager.scroll();
-        self.camera.process_mouse_scroll(scroll_y as _);
+        self.camera.process_mouse_scroll(scroll_y);
 
         gl::viewport((0, 0), (800, 600));
         gl::enable(gl::Capability::DEPTH_TEST);
@@ -69,17 +245,36 @@ impl Application for State {
 
         let projection = glm::perspective(800. / 600., 45f32.to_radians(), 0.1, 100.);
         let view = self.camera.view_matrix();
-        gl::uniform_matrix_4fv(gl::uniform_location(self.shader_program, "projection"), false, glm::value_ptr(&projection));
-        gl::uniform_matrix_4fv(gl::uniform_location(self.shader_program, "view"), false, glm::value_ptr(&view));
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.shader_program, "projection"),
+            false,
+            glm::value_ptr(&projection),
+        );
+        gl::uniform_matrix_4fv(
+            gl::uniform_location(self.shader_program, "view"),
+            false,
+            glm::value_ptr(&view),
+        );
         gl::uniform_1i(gl::uniform_location(self.shader_program, "texture1"), 0);
         gl::uniform_1i(gl::uniform_location(self.shader_program, "texture2"), 1);
-        gl::uniform_1f(gl::uniform_location(self.shader_program, "texture_factor"), self.texture_factor);
-        gl::uniform_1i(gl::uniform_location(self.shader_program, "flip_face"), if self.flip_face { 1 } else { 0 });
-        gl::uniform_1f(gl::uniform_location(self.shader_program, "texture_scale"), self.texture_scale);
+        let settings = self.texture_settings.borrow();
+        gl::uniform_1f(
+            gl::uniform_location(self.shader_program, "texture_factor"),
+            settings.texture_factor,
+        );
+        gl::uniform_1i(
+            gl::uniform_location(self.shader_program, "flip_face"),
+            if settings.flip_face { 1 } else { 0 },
+        );
+        gl::uniform_1f(
+            gl::uniform_location(self.shader_program, "texture_scale"),
+            settings.texture_scale,
+        );
 
         gl::bind_vertex_array(self.vertex_array_object);
         let t = time.duration_since_start().as_secs_f32();
-        for (index, position) in self.cubes.iter().enumerate() {
+        let cubes = self.cube_positions.borrow();
+        for (index, position) in cubes.positions.iter().enumerate() {
             let model = glm::translation(position);
             let angle = if index % 3 == 0 {
                 25. * t
@@ -87,61 +282,17 @@ impl Application for State {
                 20. * (index as f32)
             };
             let model = glm::rotate(&model, angle.to_radians(), &glm::vec3(1., 0.3, 0.5));
-            gl::uniform_matrix_4fv(gl::uniform_location(self.shader_program, "model"), false, glm::value_ptr(&model));
+            gl::uniform_matrix_4fv(
+                gl::uniform_location(self.shader_program, "model"),
+                false,
+                glm::value_ptr(&model),
+            );
             gl::draw_arrays(gl::DrawMode::TRIANGLES, 0, 36);
         }
     }
 
-    fn gui(&mut self, ui: &imgui::Ui) {
-        ui.window("Settings")
-            .save_settings(false)
-            .always_auto_resize(true)
-            .build(|| {
-                ui.slider("Texture mix factor", 0., 1., &mut self.texture_factor);
-                ui.checkbox("Flip face horizontally", &mut self.flip_face);
-                ui.slider("Texture scale", 0.25, 4., &mut self.texture_scale);
-
-                if ui.collapsing_header("Cubes", imgui::TreeNodeFlags::empty()) {
-                    for (index, position) in self.cubes.iter_mut().enumerate() {
-                        ui.text(format!("Cube n°{index}"));
-                        ui.same_line();
-                        ui.input_float(format!("## cube-{index}-x"), &mut position.x).build();
-                        ui.same_line();
-                        ui.input_float(format!("## cube-{index}-y"), &mut position.y).build();
-                        ui.same_line();
-                        ui.input_float(format!("## cube-{index}-z"), &mut position.z).build();
-                    }
-                }
-            });
-    }
-}
-
-impl State {
-    pub fn new(shader_program: gl::ProgramId, vertex_array_object: gl::VertexArrayId, container_texture: gl::TextureId, face_texture: gl::TextureId) -> Self {
-        Self {
-            shader_program,
-            vertex_array_object,
-            container_texture,
-            face_texture,
-
-            cubes: vec![
-                glm::vec3(0., 0., 0.),
-                glm::vec3(2., 5., -15.),
-                glm::vec3(-1.5, -2.2, -2.5),
-                glm::vec3(-3.8, -2., -12.3),
-                glm::vec3(2.4, -0.4, -3.5),
-                glm::vec3(-1.7, 3., -7.5),
-                glm::vec3(1.3, -2., -2.5),
-                glm::vec3(1.5, 2., -2.5),
-                glm::vec3(1.5, 0.2, -1.5),
-                glm::vec3(-1.3, 1., -1.5),
-            ],
-            camera: Camera::new(glm::vec3(0., 0., 3.), glm::vec3(0., 1., 0.), -90., 0.),
-
-            texture_factor: 0.2,
-            flip_face: false,
-            texture_scale: 1.,
-        }
+    fn views(&mut self) -> &mut [Box<dyn View>] {
+        self.views.as_mut_slice()
     }
 }
 
@@ -152,82 +303,5 @@ pub fn main() -> Result<()> {
         &OpenGLVersion::of(3, 3),
     )?;
 
-    let vertex_data: [f32; 180] = [
-        -0.5, -0.5, -0.5, 0., 0.,
-        0.5, -0.5, -0.5, 1., 0.,
-        0.5, 0.5, -0.5, 1., 1.,
-        0.5, 0.5, -0.5, 1., 1.,
-        -0.5, 0.5, -0.5, 0., 1.,
-        -0.5, -0.5, -0.5, 0., 0.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        0.5, -0.5, 0.5, 1., 0.,
-        0.5, 0.5, 0.5, 1., 1.,
-        0.5, 0.5, 0.5, 1., 1.,
-        -0.5, 0.5, 0.5, 0., 1.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        -0.5, 0.5, 0.5, 1., 0.,
-        -0.5, 0.5, -0.5, 1., 1.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        -0.5, 0.5, 0.5, 1., 0.,
-        0.5, 0.5, 0.5, 1., 0.,
-        0.5, 0.5, -0.5, 1., 1.,
-        0.5, -0.5, -0.5, 0., 1.,
-        0.5, -0.5, -0.5, 0., 1.,
-        0.5, -0.5, 0.5, 0., 0.,
-        0.5, 0.5, 0.5, 1., 0.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        0.5, -0.5, -0.5, 1., 1.,
-        0.5, -0.5, 0.5, 1., 0.,
-        0.5, -0.5, 0.5, 1., 0.,
-        -0.5, -0.5, 0.5, 0., 0.,
-        -0.5, -0.5, -0.5, 0., 1.,
-        -0.5, 0.5, -0.5, 0., 1.,
-        0.5, 0.5, -0.5, 1., 1.,
-        0.5, 0.5, 0.5, 1., 0.,
-        0.5, 0.5, 0.5, 1., 0.,
-        -0.5, 0.5, 0.5, 0., 0.,
-        -0.5, 0.5, -0.5, 0., 1.
-    ];
-
-    let vertex_array_object = gl::create_vertex_array();
-    gl::bind_vertex_array(vertex_array_object);
-
-    let triangle_vbo = gl::create_buffer();
-    gl::bind_buffer(gl::BufferTarget::ARRAY_BUFFER, triangle_vbo);
-    gl::buffer_data(gl::BufferTarget::ARRAY_BUFFER, &vertex_data, gl::BufferUsage::STATIC_DRAW);
-
-    gl::vertex_attrib_pointer(
-        0,
-        gl::ComponentSize::SIZE_3,
-        gl::ComponentType::FLOAT,
-        false,
-        size_of::<f32>() * 5,
-        0);
-    gl::enable_vertex_attrib_array(0);
-    gl::vertex_attrib_pointer(
-        1,
-        gl::ComponentSize::SIZE_2,
-        gl::ComponentType::FLOAT,
-        false,
-        size_of::<f32>() * 5,
-        size_of::<f32>() * 3,
-    );
-    gl::enable_vertex_attrib_array(1);
-    gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);
-
-    let shader_program = utils::program(
-        include_str!("../assets/triangle.vert"),
-        include_str!("../assets/triangle.frag"),
-    )?;
-
-    let container_texture = utils::load_texture_2d(include_bytes!("../assets/container.jpg"))?;
-    let face_texture = utils::load_texture_2d(include_bytes!("../assets/awesomeface.png"))?;
-    gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_WRAP_S, &[gl::sys::MIRRORED_REPEAT]);
-    gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_WRAP_T, &[gl::sys::REPEAT]);
-
-    let state = State::new(shader_program, vertex_array_object, container_texture, face_texture);
-
-    application::main_loop(context, state)
+    application::start::<State>(context)
 }

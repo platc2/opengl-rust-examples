@@ -5,16 +5,24 @@ extern crate renderer;
 use std::time::Instant;
 
 use anyhow::Result;
-
 use renderer::application;
-use renderer::application::Application;
-use renderer::input_manager::InputManager;
+use renderer::application::{App, Application};
+use renderer::input::InputManager;
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::time::Time;
 use utils::gl;
 
 #[derive(Default)]
 struct State;
+
+impl App for State {
+    fn new() -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self)
+    }
+}
 
 impl Application for State {
     fn tick(&mut self, _: &Time<Instant>, _: &dyn InputManager) {
@@ -25,14 +33,12 @@ impl Application for State {
     }
 }
 
-pub fn main() -> Result<()> {
+pub fn main() -> anyhow::Result<()> {
     let context = RendererContext::init(
         "LearnOpenGL",
         &WindowDimension::of(800, 600),
         &OpenGLVersion::of(3, 3),
     )?;
 
-    let state = State;
-
-    application::main_loop(context, state)
+    application::start::<State>(context)
 }

@@ -24,7 +24,7 @@ impl Planet {
         let vertex_data = generate_mesh_data(0, &nalgebra_glm::vec3(0., 0., 0.), None, &icosahedron);
         let mut vertex_buffer = Buffer::allocate(
             BufferUsage::Vertex,
-            vertex_data.len() * std::mem::size_of::<f32>(),
+            vertex_data.len() * size_of::<f32>(),
         )
             .context("Failed to initialize terrain mesh vertex buffer")?;
         upload_data(&mut vertex_buffer, &vertex_data[..]);
@@ -37,7 +37,7 @@ impl Planet {
         let vertex_data = generate_mesh_data(max_level, camera, forward, &self.icosahedron);
         let mut vertex_buffer = Buffer::allocate(
             BufferUsage::Vertex,
-            vertex_data.len() * std::mem::size_of::<f32>(),
+            vertex_data.len() * size_of::<f32>(),
         ).unwrap();
         upload_data(&mut vertex_buffer, &vertex_data[..]);
 
@@ -52,7 +52,7 @@ fn upload_data<T: Copy>(buffer: &mut Buffer, data: &[T]) {
     buffer.unmap();
 }
 
-fn generate_mesh_data(max_level: u16, camera: &nalgebra_glm::Vec3, forward: Option<&nalgebra_glm::Vec3>, icosahedron: &Polyhedron) -> Vec<f32> {
+fn generate_mesh_data(max_level: u16, camera: &nalgebra_glm::Vec3, _forward: Option<&nalgebra_glm::Vec3>, icosahedron: &Polyhedron) -> Vec<f32> {
     let mut result = Vec::new();
     /*
         let triangles = icosahedron::triangles();
@@ -73,7 +73,7 @@ fn generate_mesh_data(max_level: u16, camera: &nalgebra_glm::Vec3, forward: Opti
                         let n = nalgebra_glm::cross(&x, &y).normalize();
                         nalgebra_glm::dot(forward, &n) >= 0.
                     } else {
-                        true
+                        true 
                     }
                 })
          */
@@ -90,7 +90,7 @@ fn recursive_triangle(vertices: &mut Vec<f32>, camera: &nalgebra_glm::Vec3, a: &
 
     use nalgebra_glm::Vec3;
 
-    if (subdivide) {
+    if subdivide {
         let A: Vec3 = (b + ((c - b) * 0.5))
             .normalize();
         let B: Vec3 = (c + ((a - c) * 0.5))

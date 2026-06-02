@@ -71,7 +71,7 @@ impl Resources {
         let file_len = usize::try_from(file.metadata()?.len()).map_err(|_| Error::TooLong)?;
         let mut buffer: Vec<u8> = Vec::with_capacity(file_len);
         file.read_to_end(&mut buffer)?;
-        if buffer.iter().any(|i| *i == 0) {
+        if buffer.contains(&0) {
             return Err(Error::FileContainsNil);
         }
 

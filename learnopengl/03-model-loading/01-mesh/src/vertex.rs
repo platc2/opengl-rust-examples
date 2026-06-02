@@ -1,4 +1,4 @@
-#[repr(packed)]
+#[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
 pub struct Vertex {
     position: glm::Vec3,

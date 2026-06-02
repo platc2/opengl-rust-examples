@@ -1,0 +1,17 @@
+[package]
+name = "scene-graph"
+description = "Representation of a simple Scene Graph system"
+repository = "https://github.com/platc2/opengl-rust-examples"
+keywords = ["OpenGL", "Rust"]
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+walkdir.workspace = true
+
+[dependencies]
+gl_bindings.workspace = true
+renderer.workspace = true
+anyhow.workspace = true
+nalgebra-glm.workspace = true
+imgui.workspace = true

@@ -9,3 +9,5 @@ renderer.workspace = true
 nalgebra-glm.workspace = true
 stb_image.workspace = true
 anyhow.workspace = true
+config.workspace = true
+serde.workspace = true

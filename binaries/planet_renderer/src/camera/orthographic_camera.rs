@@ -1,6 +1,6 @@
 use nalgebra_glm as glm;
 
-use crate::camera::Camera;
+use crate::camera::{update_camera_view_matrix, Camera};
 use crate::movable::Movable;
 use crate::transform::Transform;
 
@@ -44,12 +44,13 @@ impl OrthographicCamera {
         }
     }
 
+    #[must_use]
+    pub fn changed(&self) -> bool { self.transform.changed() }
+
     pub fn update(&mut self) {
         if self.transform.changed() {
-            let world_pos = self.transform.position();
-            let look_at = world_pos + self.transform.forward();
-            let up = self.transform.up();
-            self.view = glm::look_at(world_pos, &look_at, up);
+            self.transform.update();
+            update_camera_view_matrix(&mut self.view, &self.transform);
         }
     }
 }

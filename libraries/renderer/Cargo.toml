@@ -18,4 +18,12 @@ sdl2.workspace = true
 anyhow.workspace = true
 nalgebra-glm.workspace = true
 stb_image.workspace = true
-thiserror = "1.0.56"
+thiserror.workspace = true
+
+[package.metadata.vcpkg]
+dependencies = ["sdl2"]
+git = "https://github.com/microsoft/vcpkg"
+rev = "2025.09.17"
+
+[package.metadata.vcpkg.target]
+x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }

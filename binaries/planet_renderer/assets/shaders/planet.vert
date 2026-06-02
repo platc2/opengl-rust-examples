@@ -10,6 +10,10 @@ layout (std140, binding = 0) uniform Matrix {
 
 
 void main() {
-    mat4 modelViewProjection = matrix.projection * matrix.view * matrix.model;
-    gl_Position = modelViewProjection * vec4(vertex, 1.0);
+    vec4 modelSpace = normalize(matrix.model * vec4(vertex, 1.));
+    mat4 viewProjection = matrix.projection * matrix.view;
+
+//    mat4 modelViewProjection = matrix.projection * matrix.view * matrix.model;
+//    gl_Position = modelViewProjection * vec4(vertex, 1.);
+    gl_Position = viewProjection * modelSpace;
 }

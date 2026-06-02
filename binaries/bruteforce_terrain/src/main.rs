@@ -5,10 +5,8 @@ extern crate gl_bindings as gl;
 extern crate imgui;
 extern crate nalgebra_glm as glm;
 extern crate noise;
-extern crate sdl2;
 
 use std::path::Path;
-
 use anyhow::{Context, Result};
 
 use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding};

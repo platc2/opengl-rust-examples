@@ -8,22 +8,22 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use nalgebra_glm as glm;
 
-use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute, VertexBinding};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
+use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute, VertexBinding};
 
 use crate::matrix_uniform::MatrixUniform;
 use crate::state::State;
 
 mod matrix_uniform;
 mod camera;
-mod planet;
-mod icosahedron;
 mod polyhedron;
 mod transform;
 mod movable;
 mod frustum;
 mod state;
+mod planet;
+mod planet2;
 
 pub fn main() -> Result<()> {
     let window_dimension = WindowDimension::default();
@@ -37,7 +37,7 @@ pub fn main() -> Result<()> {
     let res = Resources::from_relative_exe_path(Path::new("assets"))?;
 
     let matrix_uniform_buffer =
-        Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<MatrixUniform>())?;
+        Buffer::allocate(BufferUsage::Uniform, size_of::<MatrixUniform>())?;
 
     let planet_vertex_shader = res
         .load_string("/shaders/planet.vert")
@@ -64,8 +64,8 @@ pub fn main() -> Result<()> {
         &[],
     )?;
 
-    let frustum_vbx = Buffer::allocate(BufferUsage::Vertex, std::mem::size_of::<glm::Vec3>() * 8)?;
-    let frustum_idx = Buffer::allocate(BufferUsage::Index, std::mem::size_of::<u16>() * 24)?;
+    let frustum_vbx = Buffer::allocate(BufferUsage::Vertex, size_of::<glm::Vec3>() * 8)?;
+    let frustum_idx = Buffer::allocate(BufferUsage::Index, size_of::<u16>() * 24)?;
 
     let state = State::new(
         frustum_vbx,

@@ -1,3 +1,4 @@
+use std::cell::Ref;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
@@ -63,11 +64,7 @@ impl State {
 }
 
 impl Application for State {
-    fn tick(&mut self, _: &Time<Instant>, input_manager: &dyn InputManager) {
-        if input_manager.key_down(Key::ESCAPE) {
-            self.quit = true;
-        }
-
+    fn tick(&mut self, _: &Time<Instant>, input_manager: Ref<dyn InputManager>) {
         let chunk_x = self.camera.position().x.round() as i32;
         let chunk_y = self.camera.position().z.round() as i32;
         let mut keys_to_remove = HashSet::<ChunkPosition>::new();

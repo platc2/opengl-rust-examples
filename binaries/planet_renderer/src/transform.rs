@@ -40,10 +40,10 @@ impl Transform {
             rotation,
             scale,
 
-            transform: glm::Mat4::default(),
-            forward: glm::Vec3::default(),
-            right: glm::Vec3::default(),
-            up: glm::Vec3::default(),
+            transform,
+            forward,
+            right,
+            up,
 
             dirty: false,
         }
@@ -63,7 +63,6 @@ impl Transform {
 
     pub fn set_position(&mut self, position: glm::Vec3) {
         self.position = position;
-        self.update();
         self.dirty = true;
     }
 
@@ -74,13 +73,11 @@ impl Transform {
 
     pub fn set_rotation(&mut self, rotation: glm::Quat) {
         self.rotation = rotation;
-        self.update();
         self.dirty = true;
     }
 
     pub fn set_euler_angles(&mut self, rotation: glm::Vec3) {
         self.rotation = Self::euler_to_quaternion(&rotation);
-        self.update();
         self.dirty = true;
     }
 
@@ -91,7 +88,6 @@ impl Transform {
 
     pub fn set_scale(&mut self, scale: glm::Vec3) {
         self.scale = scale;
-        self.update();
         self.dirty = true;
     }
 
@@ -108,19 +104,18 @@ impl Transform {
     pub fn up(&self) -> &glm::Vec3 { &self.up }
 
     #[must_use]
-    pub fn changed(&mut self) -> bool {
-        let dirty = self.dirty;
-        self.dirty = false;
-        dirty
-    }
+    pub fn changed(&self) -> bool { self.dirty }
 
-    fn update(&mut self) {
-        self.transform = glm::translation(&self.position) *
-            glm::quat_to_mat4(&self.rotation) *
-            glm::scaling(&self.scale);
-        self.forward = glm::quat_rotate_vec3(&self.rotation, &glm::vec3(0., 0., 1.));
-        self.right = glm::quat_rotate_vec3(&self.rotation, &glm::vec3(1., 0., 0.));
-        self.up = glm::cross(&self.forward, &self.right);
+    pub fn update(&mut self) {
+        if self.dirty {
+            self.transform = glm::translation(&self.position) *
+                glm::quat_to_mat4(&self.rotation) *
+                glm::scaling(&self.scale);
+            self.forward = glm::quat_rotate_vec3(&self.rotation, &glm::vec3(0., 0., 1.));
+            self.right = glm::quat_rotate_vec3(&self.rotation, &glm::vec3(1., 0., 0.));
+            self.up = glm::cross(&self.forward, &self.right);
+            self.dirty = false;
+        }
     }
 
     pub fn euler_to_quaternion(euler: &glm::Vec3) -> glm::Quat {

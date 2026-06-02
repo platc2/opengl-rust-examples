@@ -1,16 +1,14 @@
 extern crate imgui;
 
 use std::any::Any;
-use std::collections::HashMap;
 use std::time::Duration;
 
 use imgui::{BackendFlags, FontAtlas, TextureId};
 
-use gl::sys::RawHandle;
-
-use crate::input_manager::Key;
+use crate::event::{DomainEvent, EventHandler};
 use crate::renderer::{Program, Shader, ShaderKind, Texture};
-
+use crate::renderer_context::WindowDimension;
+use gl::sys::RawHandle;
 
 #[allow(unused)]
 mod gl {
@@ -30,7 +28,7 @@ mod gl {
 const IMGUI_VERTEX_SHADER_SOURCE: &str = include_str!("shaders/imgui.vert");
 const IMGUI_FRAGMENT_SHADER_SOURCE: &str = include_str!("shaders/imgui.frag");
 
-const IMGUI_INDEX_TYPE: gl::IndexType = match std::mem::size_of::<imgui::DrawIdx>() {
+const IMGUI_INDEX_TYPE: gl::IndexType = match size_of::<imgui::DrawIdx>() {
     1 => gl::IndexType::UNSIGNED_BYTE,
     2 => gl::IndexType::UNSIGNED_SHORT,
     4 => gl::IndexType::UNSIGNED_INT,
@@ -45,9 +43,85 @@ pub struct Imgui {
     element_buffer_object: gl::BufferId,
 }
 
-type WindowDimension = [f32; 2];
-type MousePos = [f32; 2];
-type MouseButtonState = [bool; 2];
+impl EventHandler<DomainEvent, Vec<DomainEvent>> for Imgui {
+    fn handle_event(&mut self, event: DomainEvent) -> Vec<DomainEvent> {
+        let io = self.context.io_mut();
+        match event {
+            DomainEvent::KeyDown(key) => {
+                io.add_key_event(key.imgui, true);
+                if io.want_capture_keyboard {
+                    vec![]
+                } else {
+                    vec![event]
+                }
+            }
+            DomainEvent::KeyUp(key) => {
+                io.add_key_event(key.imgui, false);
+                if io.want_capture_keyboard {
+                    vec![]
+                } else {
+                    vec![event]
+                }
+            }
+            DomainEvent::MouseMotion { x, y, .. } => {
+                io.add_mouse_pos_event([x as f32, y as f32]);
+                if io.want_capture_mouse {
+                    vec![]
+                } else {
+                    vec![event]
+                }
+            }
+            DomainEvent::MouseButtonDown(button) => {
+                if let Some(button) = imgui_button(button) {
+                    io.add_mouse_button_event(button, true);
+                    if io.want_capture_mouse {
+                        vec![]
+                    } else {
+                        vec![event]
+                    }
+                } else {
+                    vec![event]
+                }
+            }
+            DomainEvent::MouseButtonUp(button) => {
+                if let Some(button) = imgui_button(button) {
+                    io.add_mouse_button_event(button, false);
+                    if io.want_capture_mouse {
+                        vec![]
+                    } else {
+                        vec![event]
+                    }
+                } else {
+                    vec![event]
+                }
+            }
+            DomainEvent::MouseWheel { x, y } => {
+                io.add_mouse_wheel_event([x, y]);
+                if io.want_capture_mouse {
+                    vec![]
+                } else {
+                    vec![event]
+                }
+            }
+            DomainEvent::TextInput(ref text) => {
+                for char in text.chars() {
+                    io.add_input_character(char);
+                }
+                vec![event]
+            }
+            _ => vec![event],
+        }
+    }
+}
+
+fn imgui_button(button: sdl2::mouse::MouseButton) -> Option<imgui::MouseButton> {
+    match button {
+        sdl2::mouse::MouseButton::Left => Some(imgui::MouseButton::Left),
+        sdl2::mouse::MouseButton::Right => Some(imgui::MouseButton::Right),
+        sdl2::mouse::MouseButton::Middle => Some(imgui::MouseButton::Middle),
+        _ => None,
+    }
+}
 
 impl Imgui {
     #[must_use]
@@ -62,16 +136,40 @@ impl Imgui {
         gl::bind_buffer(gl::BufferTarget::ARRAY_BUFFER, vertex_buffer_object);
 
         let element_buffer_object = gl::create_buffer();
-        gl::bind_buffer(gl::BufferTarget::ELEMENT_ARRAY_BUFFER, element_buffer_object);
+        gl::bind_buffer(
+            gl::BufferTarget::ELEMENT_ARRAY_BUFFER,
+            element_buffer_object,
+        );
 
         let vertex_array_object = gl::create_vertex_array();
         gl::bind_vertex_array(vertex_array_object);
         gl::enable_vertex_attrib_array(0);
-        gl::vertex_attrib_pointer(0, gl::ComponentSize::SIZE_2, gl::ComponentType::FLOAT, false, std::mem::size_of::<imgui::DrawVert>(), 0);
+        gl::vertex_attrib_pointer(
+            0,
+            gl::ComponentSize::SIZE_2,
+            gl::ComponentType::FLOAT,
+            false,
+            size_of::<imgui::DrawVert>(),
+            0,
+        );
         gl::enable_vertex_attrib_array(1);
-        gl::vertex_attrib_pointer(1, gl::ComponentSize::SIZE_2, gl::ComponentType::FLOAT, false, std::mem::size_of::<imgui::DrawVert>(), 2 * std::mem::size_of::<f32>());
+        gl::vertex_attrib_pointer(
+            1,
+            gl::ComponentSize::SIZE_2,
+            gl::ComponentType::FLOAT,
+            false,
+            size_of::<imgui::DrawVert>(),
+            2 * size_of::<f32>(),
+        );
         gl::enable_vertex_attrib_array(2);
-        gl::vertex_attrib_pointer(2, gl::ComponentSize::SIZE_4, gl::ComponentType::UNSIGNED_BYTE, true, std::mem::size_of::<imgui::DrawVert>(), 4 * std::mem::size_of::<f32>());
+        gl::vertex_attrib_pointer(
+            2,
+            gl::ComponentSize::SIZE_4,
+            gl::ComponentType::UNSIGNED_BYTE,
+            true,
+            size_of::<imgui::DrawVert>(),
+            4 * size_of::<f32>(),
+        );
         gl::bind_vertex_array(gl::VertexArrayId::NO_VERTEX_ARRAY);
 
         Self {
@@ -83,52 +181,13 @@ impl Imgui {
         }
     }
 
-    pub fn want_capture_mouse(&self) -> bool {
-        self.context.io().want_capture_mouse
-    }
-
-    pub fn prepare_unfocused(&mut self, window_dimension: WindowDimension, delta: Duration) {
-        self.prepare(
-            window_dimension,
-            None,
-            None,
-            &HashMap::new(),
-            &Vec::new(),
-            delta,
-        );
-    }
-
-    pub fn prepare(
-        &mut self,
-        window_dimension: WindowDimension,
-        mouse_pos: Option<MousePos>,
-        mouse_button_state: Option<MouseButtonState>,
-        key_changes: &HashMap<Key, bool>,
-        text_input: &Vec<String>,
-        delta: Duration,
-    ) {
+    pub fn update(&mut self, delta: Duration, window_dimension: WindowDimension) {
         let io = self.context.io_mut();
-        io.display_size = window_dimension;
+        io.display_size = [
+            window_dimension.width as f32,
+            window_dimension.height as f32,
+        ];
         io.delta_time = delta.as_secs_f32();
-
-        if let Some(mouse_pos) = mouse_pos {
-            io.mouse_pos = mouse_pos;
-        }
-
-        if let Some(mouse_button_state) = mouse_button_state {
-            io.mouse_down[0] = mouse_button_state[0];
-            io.mouse_down[1] = mouse_button_state[1];
-        }
-
-        for (key, state) in key_changes {
-            io.add_key_event(key.imgui, *state);
-        }
-
-        for text in text_input {
-            for char in text.chars() {
-                io.add_input_character(char);
-            }
-        }
     }
 
     /// # Panics
@@ -151,7 +210,10 @@ impl Imgui {
 
         gl::enable(gl::Capability::BLEND);
         gl::blend_equation(gl::BlendEquation::FUNC_ADD);
-        gl::blend_func(gl::BlendSourceFuncFactor::SRC_ALPHA, gl::BlendDestinationFuncFactor::ONE_MINUS_SRC_ALPHA);
+        gl::blend_func(
+            gl::BlendSourceFuncFactor::SRC_ALPHA,
+            gl::BlendDestinationFuncFactor::ONE_MINUS_SRC_ALPHA,
+        );
         gl::disable(gl::Capability::CULL_FACE);
         gl::disable(gl::Capability::DEPTH_TEST);
         gl::disable(gl::Capability::SCISSOR_TEST);
@@ -174,54 +236,77 @@ impl Imgui {
         );
         self.program.set_used();
         gl::uniform_1i(gl::UniformLocation::fixed(1), 0);
-        gl::uniform_matrix_4fv(gl::UniformLocation::fixed(0), false, nalgebra_glm::value_ptr(&ortho));
+        gl::uniform_matrix_4fv(
+            gl::UniformLocation::fixed(0),
+            false,
+            nalgebra_glm::value_ptr(&ortho),
+        );
 
         gl::bind_vertex_array(self.vertex_array_object);
         gl::bind_buffer(gl::BufferTarget::ARRAY_BUFFER, self.vertex_buffer_object);
-        gl::bind_buffer(gl::BufferTarget::ELEMENT_ARRAY_BUFFER, self.element_buffer_object);
+        gl::bind_buffer(
+            gl::BufferTarget::ELEMENT_ARRAY_BUFFER,
+            self.element_buffer_object,
+        );
 
         gl::active_texture(gl::TextureUnit::fixed(0));
-        for draw_list in draw_data.draw_lists() {
-            let vtx_buffer = draw_list.vtx_buffer();
-            let idx_buffer = draw_list.idx_buffer();
-            gl::buffer_data(gl::BufferTarget::ARRAY_BUFFER, vtx_buffer, gl::BufferUsage::STREAM_DRAW);
-            gl::buffer_data(gl::BufferTarget::ELEMENT_ARRAY_BUFFER, idx_buffer, gl::BufferUsage::STREAM_DRAW);
+        if draw_data.draw_lists_count() > 0 {
+            for draw_list in draw_data.draw_lists() {
+                let vtx_buffer = draw_list.vtx_buffer();
+                let idx_buffer = draw_list.idx_buffer();
+                gl::buffer_data(
+                    gl::BufferTarget::ARRAY_BUFFER,
+                    vtx_buffer,
+                    gl::BufferUsage::STREAM_DRAW,
+                );
+                gl::buffer_data(
+                    gl::BufferTarget::ELEMENT_ARRAY_BUFFER,
+                    idx_buffer,
+                    gl::BufferUsage::STREAM_DRAW,
+                );
 
-            for command in draw_list.commands() {
-                match command {
-                    imgui::DrawCmd::Elements { count, cmd_params } => {
-                        let clip_rect = cmd_params.clip_rect;
-                        let clip_rect = [
-                            clip_rect[0] - display_pos_x,
-                            clip_rect[1] - display_pos_y,
-                            clip_rect[2] - display_pos_x,
-                            clip_rect[3] - display_pos_y,
-                        ];
+                for command in draw_list.commands() {
+                    match command {
+                        imgui::DrawCmd::Elements { count, cmd_params } => {
+                            let clip_rect = cmd_params.clip_rect;
+                            let clip_rect = [
+                                clip_rect[0] - display_pos_x,
+                                clip_rect[1] - display_pos_y,
+                                clip_rect[2] - display_pos_x,
+                                clip_rect[3] - display_pos_y,
+                            ];
 
-                        let vtx_offset = cmd_params.vtx_offset;
-                        let idx_offset = cmd_params.idx_offset * std::mem::size_of::<imgui::DrawIdx>();
-                        if clip_rect[0] < frame_buffer_width
-                            && clip_rect[1] < frame_buffer_height
-                            && clip_rect[2] >= 0f32
-                            && clip_rect[3] >= 0f32
-                        {
-                            gl::scissor(
-                                (clip_rect[0] as _, (frame_buffer_height - clip_rect[3]) as _),
-                                ((clip_rect[2] - clip_rect[0]) as _, (clip_rect[3] - clip_rect[1]) as _));
+                            let vtx_offset = cmd_params.vtx_offset;
+                            let idx_offset = cmd_params.idx_offset * size_of::<imgui::DrawIdx>();
+                            if clip_rect[0] < frame_buffer_width
+                                && clip_rect[1] < frame_buffer_height
+                                && clip_rect[2] >= 0f32
+                                && clip_rect[3] >= 0f32
+                            {
+                                gl::scissor(
+                                    (clip_rect[0] as _, (frame_buffer_height - clip_rect[3]) as _),
+                                    (
+                                        (clip_rect[2] - clip_rect[0]) as _,
+                                        (clip_rect[3] - clip_rect[1]) as _,
+                                    ),
+                                );
 
-                            let texture_id = unsafe { gl::TextureId::from_raw(cmd_params.texture_id.id() as _) };
-                            gl::bind_texture(gl::TextureTarget::TEXTURE_2D, texture_id);
-                            gl::draw_elements_base_vertex(
-                                gl::DrawMode::TRIANGLES,
-                                count,
-                                IMGUI_INDEX_TYPE,
-                                idx_offset,
-                                vtx_offset,
-                            );
+                                let texture_id = unsafe {
+                                    gl::TextureId::from_raw(cmd_params.texture_id.id() as _)
+                                };
+                                gl::bind_texture(gl::TextureTarget::TEXTURE_2D, texture_id);
+                                gl::draw_elements_base_vertex(
+                                    gl::DrawMode::TRIANGLES,
+                                    count,
+                                    IMGUI_INDEX_TYPE,
+                                    idx_offset,
+                                    vtx_offset,
+                                );
+                            }
                         }
-                    }
-                    x => {
-                        panic!("Unimplemented! {:?}", x.type_id());
+                        x => {
+                            panic!("Unimplemented! {:?}", x.type_id());
+                        }
                     }
                 }
             }
@@ -252,7 +337,7 @@ fn generate_font_texture_from_atlas(font_atlas: &mut FontAtlas) -> Texture {
         font_atlas_texture.width as usize,
         font_atlas_texture.height as usize,
     )
-        .expect("Failed to create font texture for Dear ImGui");
+    .expect("Failed to create font texture for Dear ImGui");
     font_atlas.tex_id = TextureId::new(font_texture.handle() as usize);
     font_texture
 }

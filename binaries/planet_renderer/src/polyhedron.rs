@@ -3,11 +3,12 @@ use std::rc::Rc;
 use nalgebra_glm as glm;
 
 pub type Vertex = Rc<glm::Vec3>;
+pub type Triangle = (Vertex, Vertex, Vertex);
 
 #[derive(Debug)]
 pub struct Polyhedron {
     pub vertices: Vec<Vertex>,
-    pub triangles: Vec<(Vertex, Vertex, Vertex)>,
+    pub triangles: Vec<Triangle>,
 }
 
 impl Polyhedron {
@@ -21,9 +22,10 @@ impl Polyhedron {
 
 fn generate_icosahedron_vertices() -> [Vertex; 12] {
     let golden_ratio: f32 = (1. + 5f32.sqrt()) / 2.;
-    // Coordinates consist of 0.0, 1.0 and golden_ratio. Thus their length can be scaled
+    // Coordinates consist of 0.0, 1.0 and golden_ratio. Thus, their length can be scaled
     // down accordingly to be unit vectors
-    let scale: f32 = 1. / (golden_ratio * golden_ratio + 1.).sqrt();
+    let length: f32 = (golden_ratio * golden_ratio + 1.).sqrt();
+    let scale: f32 = 1. / length;
     let coordinate_a: f32 = golden_ratio * scale;
     let coordinate_b: f32 = scale;
     [
@@ -67,9 +69,9 @@ fn generate_icosahedron_triangles(vertices: &[Vertex; 12]) -> Vec<(Vertex, Verte
         &vertices[9], &vertices[4], &vertices[3],
         &vertices[5], &vertices[8], &vertices[4],
         &vertices[1], &vertices[11], &vertices[8],
-        &vertices[6], &vertices[7], &vertices[11],
+        &vertices[7], &vertices[6], &vertices[11],
         &vertices[9], &vertices[3], &vertices[10],
-        &vertices[5], &vertices[4], &vertices[9],
+        &vertices[4], &vertices[5], &vertices[9],
         &vertices[1], &vertices[8], &vertices[5],
         &vertices[6], &vertices[11], &vertices[1],
         &vertices[10], &vertices[7], &vertices[6],

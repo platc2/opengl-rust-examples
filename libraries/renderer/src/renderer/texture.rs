@@ -2,7 +2,8 @@ use stb_image::image::LoadResult;
 use thiserror::Error;
 
 use ::gl::sys::RawHandle;
-
+use ::gl::sys::types::{GLenum, GLuint};
+use crate::Labelled;
 use crate::renderer::texture::ImageLoadingError::{InvalidImage, UnsupportedFormat};
 
 mod gl {
@@ -183,6 +184,16 @@ impl Texture {
     #[must_use]
     pub const fn height(&self) -> usize {
         self.height
+    }
+}
+
+impl Labelled for Texture {
+    fn identifier(&self) -> GLenum {
+        gl::sys::TEXTURE
+    }
+
+    fn name(&self) -> GLuint {
+        unsafe { self.id.raw_handle() }
     }
 }
 

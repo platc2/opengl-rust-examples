@@ -1,3 +1,5 @@
+pub mod primitives;
+
 extern crate anyhow;
 extern crate gl_bindings;
 extern crate stb_image;
@@ -40,7 +42,10 @@ pub fn program(vertex_shader_source: &str, fragment_shader_source: &str) -> Resu
         Ok(program)
     } else {
         let info_log = gl::program_info_log(program);
-        Err(anyhow!("Failed to link shader program: {}", info_log.unwrap_or("Unknown error".to_owned())))
+        Err(anyhow!(
+            "Failed to link shader program: {}",
+            info_log.unwrap_or("Unknown error".to_owned())
+        ))
     }
 }
 
@@ -52,7 +57,10 @@ fn shader(shader_kind: gl::ShaderKind, shader_source: &str) -> Result<gl::Shader
         Ok(shader)
     } else {
         let info_log = gl::shader_info_log(shader);
-        Err(anyhow!("Error compiling {shader_kind:?} shader: {}", info_log.unwrap_or("Unknown error".to_owned())))
+        Err(anyhow!(
+            "Error compiling {shader_kind:?} shader: {}",
+            info_log.unwrap_or("Unknown error".to_owned())
+        ))
     }
 }
 
@@ -93,10 +101,26 @@ pub fn load_texture_2d(texture_data: &[u8]) -> Result<gl::TextureId> {
                 _ => panic!("Impossible, checked above!"),
             }
 
-            gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_MIN_FILTER, &[gl::sys::NEAREST]);
-            gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_MAG_FILTER, &[gl::sys::NEAREST]);
-            gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_WRAP_S, &[gl::sys::CLAMP_TO_EDGE]);
-            gl::tex_parameter_iuiv(gl::TextureTarget::TEXTURE_2D, gl::TextureParameter::TEXTURE_WRAP_T, &[gl::sys::CLAMP_TO_EDGE]);
+            gl::tex_parameter_iuiv(
+                gl::TextureTarget::TEXTURE_2D,
+                gl::TextureParameter::TEXTURE_MIN_FILTER,
+                &[gl::sys::NEAREST],
+            );
+            gl::tex_parameter_iuiv(
+                gl::TextureTarget::TEXTURE_2D,
+                gl::TextureParameter::TEXTURE_MAG_FILTER,
+                &[gl::sys::NEAREST],
+            );
+            gl::tex_parameter_iuiv(
+                gl::TextureTarget::TEXTURE_2D,
+                gl::TextureParameter::TEXTURE_WRAP_S,
+                &[gl::sys::CLAMP_TO_EDGE],
+            );
+            gl::tex_parameter_iuiv(
+                gl::TextureTarget::TEXTURE_2D,
+                gl::TextureParameter::TEXTURE_WRAP_T,
+                &[gl::sys::CLAMP_TO_EDGE],
+            );
             gl::generate_mipmap(gl::TextureTarget::TEXTURE_2D);
 
             Ok(texture)
@@ -110,6 +134,6 @@ fn pixel_format_from_depth(depth: usize) -> gl::PixelFormat {
         2 => gl::PixelFormat::RG,
         3 => gl::PixelFormat::RGB,
         4 => gl::PixelFormat::RGBA,
-        _ => panic!("Texture has too many channels: {}", depth)
+        _ => panic!("Texture has too many channels: {}", depth),
     }
 }
