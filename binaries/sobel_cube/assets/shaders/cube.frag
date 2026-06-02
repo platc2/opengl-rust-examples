@@ -5,7 +5,7 @@ layout (location = 0) in SHADER_VARYING {
 } IN;
 
 layout (std140, binding = 0) uniform Kernel {
-    mat4 kernel;
+    mat3 kernel;
 };
 
 layout (binding = 0) uniform sampler2D tex;
@@ -49,4 +49,5 @@ void main()
     }
 
     color = vec4(col, 1.0);
+    color = vec4(texture(tex, IN.uv).rgb, 1.0);
 }

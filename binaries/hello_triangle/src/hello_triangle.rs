@@ -1,6 +1,6 @@
 use alloc::rc::Rc;
 use anyhow::Context;
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::time::Instant;
 
 use crate::gamma_window;
@@ -89,23 +89,8 @@ impl App for HelloTriangle {
     }
 }
 
-impl HelloTriangle {
-    pub fn new(render_pass: RenderPass, gamma_buffer: Buffer, vertex_buffer: Buffer) -> Self {
-        let gamma = Rc::new(RefCell::new(1.0f32));
-        Self {
-            render_pass,
-            gamma_buffer,
-            vertex_buffer,
-            gamma: gamma.clone(),
-            views: vec![Box::new(gamma_window::GammaWindow::new(gamma.clone()))],
-
-            quit: false,
-        }
-    }
-}
-
 impl Application for HelloTriangle {
-    fn tick(&mut self, _: &Time<Instant>, _: Ref<dyn InputManager>) {
+    fn tick(&mut self, _: &Time<Instant>, _: &dyn InputManager) {
         self.render_pass.display();
 
         unsafe {

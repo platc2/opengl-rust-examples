@@ -1,10 +1,10 @@
 use thiserror::Error;
 
 use gl::sys::types::{GLenum, GLint, GLintptr, GLsizeiptr, GLuint};
-
-use crate::renderer::{Buffer, Program, Shader, Texture, VertexAttribute};
 use crate::renderer::render_pass::Error::IncompleteFramebuffer;
 use crate::renderer::vertex_attribute::Format;
+use crate::renderer::labelled::Labelled;
+use crate::renderer::{Buffer, Program, Shader, Texture, VertexAttribute};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -31,6 +31,40 @@ pub struct RenderPass {
 pub struct VertexBinding {
     binding_index: GLuint,
     vertex_attribute: VertexAttribute,
+}
+
+impl Labelled for RenderPass {
+    fn set_label(&mut self, label: &str) {
+        let _label = format!("{}::framebuffer", label);
+        if self.frame_buffer > 0 {
+            unsafe {
+                gl::sys::ObjectLabel(
+                    gl::sys::FRAMEBUFFER,
+                    self.frame_buffer,
+                    label.len() as _,
+                    label.as_ptr().cast(),
+                );
+            }
+        }
+
+        let _label = format!("{}::vao", label);
+        unsafe {
+            gl::sys::ObjectLabel(
+                gl::sys::VERTEX_ARRAY,
+                self.vertex_array_object,
+                _label.len() as _,
+                _label.as_ptr().cast(),
+            )
+        }
+    }
+
+    fn identifier(&self) -> gl::sys::types::GLenum {
+        unimplemented!()
+    }
+
+    fn name(&self) -> GLuint {
+        unimplemented!()
+    }
 }
 
 impl VertexBinding {
@@ -93,7 +127,7 @@ impl RenderPass {
 
         // Buffer object already checks for valid size
         #[allow(clippy::cast_possible_wrap)]
-            let uniform_buffers = uniform_buffers
+        let uniform_buffers = uniform_buffers
             .iter()
             .map(|&buffer| (buffer.handle(), buffer.size() as GLsizeiptr))
             .collect();
@@ -120,7 +154,12 @@ impl RenderPass {
                 let mut render_buffer: GLuint = 0;
                 gl::sys::CreateRenderbuffers(1, &mut render_buffer);
                 gl::sys::BindRenderbuffer(gl::sys::RENDERBUFFER, render_buffer);
-                gl::sys::RenderbufferStorage(gl::sys::RENDERBUFFER, gl::sys::DEPTH24_STENCIL8, 1024, 1024);
+                gl::sys::RenderbufferStorage(
+                    gl::sys::RENDERBUFFER,
+                    gl::sys::DEPTH24_STENCIL8,
+                    1024,
+                    1024,
+                );
                 gl::sys::FramebufferRenderbuffer(
                     gl::sys::FRAMEBUFFER,
                     gl::sys::DEPTH_STENCIL_ATTACHMENT,
@@ -134,7 +173,9 @@ impl RenderPass {
                 e => panic!("{:x} INCOMPLETE!", e),
             }
 
-            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
+            unsafe {
+                gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0);
+            }
         }
 
         Ok(Self {
@@ -188,7 +229,7 @@ impl RenderPass {
 
         // Buffer object already checks for valid size
         #[allow(clippy::cast_possible_wrap)]
-            let uniform_buffers = uniform_buffers
+        let uniform_buffers = uniform_buffers
             .iter()
             .map(|&buffer| (buffer.handle(), buffer.size() as GLsizeiptr))
             .collect();
@@ -215,7 +256,12 @@ impl RenderPass {
                 let mut render_buffer: GLuint = 0;
                 gl::sys::CreateRenderbuffers(1, &mut render_buffer);
                 gl::sys::BindRenderbuffer(gl::sys::RENDERBUFFER, render_buffer);
-                gl::sys::RenderbufferStorage(gl::sys::RENDERBUFFER, gl::sys::DEPTH24_STENCIL8, 1024, 1024);
+                gl::sys::RenderbufferStorage(
+                    gl::sys::RENDERBUFFER,
+                    gl::sys::DEPTH24_STENCIL8,
+                    1024,
+                    1024,
+                );
                 gl::sys::FramebufferRenderbuffer(
                     gl::sys::FRAMEBUFFER,
                     gl::sys::DEPTH_STENCIL_ATTACHMENT,
@@ -229,7 +275,9 @@ impl RenderPass {
                 e => panic!("{:x} INCOMPLETE!", e),
             }
 
-            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
+            unsafe {
+                gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0);
+            }
         }
 
         Ok(Self {
@@ -326,7 +374,12 @@ impl RenderPass {
                 let mut render_buffer: GLuint = 0;
                 gl::sys::CreateRenderbuffers(1, &mut render_buffer);
                 gl::sys::BindRenderbuffer(gl::sys::RENDERBUFFER, render_buffer);
-                gl::sys::RenderbufferStorage(gl::sys::RENDERBUFFER, gl::sys::DEPTH24_STENCIL8, 1024, 1024);
+                gl::sys::RenderbufferStorage(
+                    gl::sys::RENDERBUFFER,
+                    gl::sys::DEPTH24_STENCIL8,
+                    1024,
+                    1024,
+                );
                 gl::sys::FramebufferRenderbuffer(
                     gl::sys::FRAMEBUFFER,
                     gl::sys::DEPTH_STENCIL_ATTACHMENT,
@@ -340,7 +393,9 @@ impl RenderPass {
                 _ => return Err(IncompleteFramebuffer),
             }
 
-            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
+            unsafe {
+                gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0);
+            }
         }
 
         Ok(Self {
@@ -353,9 +408,12 @@ impl RenderPass {
     }
 
     pub fn display(&self) {
-        if self.frame_buffer > 0 {
-            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, self.frame_buffer) };
-        }
+        let buffer = if self.frame_buffer > 0 {
+            self.frame_buffer
+        } else {
+            0
+        };
+        unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, buffer) };
 
         self.program.set_used();
         unsafe {
@@ -363,18 +421,24 @@ impl RenderPass {
         }
 
         for (index, (handle, size)) in
-        self.uniform_buffers
-            .iter()
-            .enumerate()
-            .map(|(index, tuple)| {
-                (
-                    GLuint::try_from(index).expect("Too many uniform buffers"),
-                    tuple,
-                )
-            })
+            self.uniform_buffers
+                .iter()
+                .enumerate()
+                .map(|(index, tuple)| {
+                    (
+                        GLuint::try_from(index).expect("Too many uniform buffers"),
+                        tuple,
+                    )
+                })
         {
             unsafe {
-                gl::sys::BindBufferRange(gl::sys::UNIFORM_BUFFER, index, *handle, 0 as GLintptr, *size);
+                gl::sys::BindBufferRange(
+                    gl::sys::UNIFORM_BUFFER,
+                    index,
+                    *handle,
+                    0 as GLintptr,
+                    *size,
+                );
             }
         }
 
@@ -391,7 +455,7 @@ impl RenderPass {
         }
 
         if self.frame_buffer > 0 {
-            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
+            //            unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0); }
         }
     }
 }
@@ -401,7 +465,8 @@ fn index_to_texture_slot(index: usize) -> GLenum {
 }
 
 fn index_to_color_attachment_slot(index: usize) -> GLenum {
-    GLenum::try_from(gl::sys::COLOR_ATTACHMENT0 as usize + index).expect("Attachment index too large")
+    GLenum::try_from(gl::sys::COLOR_ATTACHMENT0 as usize + index)
+        .expect("Attachment index too large")
 }
 
 const fn convert_format(format: Format) -> (GLint, GLenum) {

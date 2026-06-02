@@ -6,13 +6,10 @@ extern crate core;
 extern crate gl_bindings as gl;
 extern crate nalgebra_glm as glm;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
-use renderer::{
-    application, Buffer, BufferUsage
-    ,
-};
+use renderer::{application, Buffer, BufferUsage};
 
 use crate::sobel_cube::SobelCube;
 

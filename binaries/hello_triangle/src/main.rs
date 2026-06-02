@@ -7,7 +7,7 @@ extern crate gl_bindings as gl;
 extern crate imgui;
 extern crate renderer;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use renderer::application;
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};

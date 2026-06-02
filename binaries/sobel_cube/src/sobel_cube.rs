@@ -1,7 +1,7 @@
+use renderer::Labelled;
 use alloc::borrow::Cow;
 use anyhow::Context;
 use imgui::Ui;
-use std::cell::Ref;
 use std::f32::consts::PI;
 use std::path::Path;
 use std::time::Instant;
@@ -93,9 +93,10 @@ impl App for SobelCube {
         let cube_texture = Texture::from(&mut res.load_image("/textures/cube.tga")?)?;
         let floor_texture = Texture::from(&mut res.load_image("/textures/floor.tga")?)?;
 
-        let render_texture = Texture::blank(1024, 1024);
+        let mut render_texture = Texture::blank(1024, 1024);
+        render_texture.set_label("Render texture");
 
-        let main_render_pass = RenderPass::new(
+        let mut main_render_pass = RenderPass::new(
             &vertex_shader,
             &fragment_shader,
             &vertex_bindings,
@@ -103,6 +104,7 @@ impl App for SobelCube {
             &[&cube_texture, &floor_texture],
             &[&render_texture],
         )?;
+        main_render_pass.set_label("main_render_pass");
 
         let cube_vertices = initialize_cube_vertices()?;
         let cube_vertex_bindings = [
@@ -123,7 +125,7 @@ impl App for SobelCube {
             ShaderKind::Fragment,
         )
         .context("Failed to initialize cube fragment shader")?;
-        let cube_render_pass = RenderPass::new(
+        let mut cube_render_pass = RenderPass::new(
             &cube_vertex_shader,
             &cube_fragment_shader,
             &cube_vertex_bindings,
@@ -131,6 +133,7 @@ impl App for SobelCube {
             &[&render_texture],
             &[],
         )?;
+        cube_render_pass.set_label("cube_render_pass");
 
         unsafe {
             gl::sys::Enable(gl::sys::DEPTH_TEST);
@@ -223,7 +226,7 @@ impl App for SobelCube {
 }
 
 impl Application for SobelCube {
-    fn tick(&mut self, time: &Time<Instant>, input_manager: Ref<dyn InputManager>) {
+    fn tick(&mut self, time: &Time<Instant>, _: &dyn InputManager) {
         self.angle += 0.005f32;
         let view_projection = self.projection * self.view;
         let model = nalgebra_glm::rotation(self.angle, &nalgebra_glm::vec3(1.5f32, 1f32, 0.5f32));
