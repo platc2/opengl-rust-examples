@@ -2,6 +2,7 @@ use gl_bindings_raw_handle_derive::RawHandle;
 
 use crate::{define_gl_constants, gl, gl::RawHandle};
 
+/*
 pub fn viewport(pos: (usize, usize), size: (usize, usize)) {
     unsafe { gl::Viewport(pos.0 as _, pos.1 as _, size.0 as _, size.1 as _); }
 }
@@ -119,3 +120,4 @@ pub fn blend_func_separate(
             blend_func_factor_destination_alpha.raw_handle());
     }
 }
+*/

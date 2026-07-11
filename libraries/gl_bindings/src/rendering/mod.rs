@@ -7,6 +7,7 @@ use crate::{define_gl_constants, gl, gl::RawHandle};
 mod clear_mask;
 mod draw_mode;
 
+/*
 pub fn clear(clear_mask: ClearMask) {
     unsafe { gl::Clear(clear_mask.raw_handle()); }
 }
@@ -49,6 +50,7 @@ pub fn draw_elements<T>(draw_mode: DrawMode, count: usize, index_type: IndexType
         .unwrap_or(core::ptr::null());
     unsafe { gl::DrawElements(draw_mode.raw_handle(), count as _, index_type.raw_handle(), indices); }
 }
+*/
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, RawHandle)]
 pub struct IndexType(gl::GLenum);
@@ -61,6 +63,7 @@ impl IndexType {
     );
 }
 
+/*
 pub fn draw_elements_base_vertex(draw_mode: DrawMode, count: usize, index_type: IndexType, index_offset: usize, base_vertex: usize) {
     unsafe {
         gl::DrawElementsBaseVertex(
@@ -71,3 +74,4 @@ pub fn draw_elements_base_vertex(draw_mode: DrawMode, count: usize, index_type: 
             base_vertex as _);
     }
 }
+*/

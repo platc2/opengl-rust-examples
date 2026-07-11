@@ -39,6 +39,7 @@ pub struct Texture {
 
 impl Texture {
     pub fn from_raw_1(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
+/*
         let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
         gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR as _);
         gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MAG_FILTER, gl::sys::LINEAR as _);
@@ -65,10 +66,13 @@ impl Texture {
             width,
             height,
         })
+*/
+        unimplemented!()
     }
 
     /// # Errors
     pub fn from_raw(image_data: &[u8], width: usize, height: usize) -> Result<Self> {
+/*
         let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
 
         gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR as _);
@@ -91,11 +95,14 @@ impl Texture {
             width,
             height,
         })
+*/
+        unimplemented!()
     }
     /// # Errors
     /// - [`Error::InvalidImage`]
     /// - [`Error::UnsupportedFormat`]
     pub fn from(image_data: &[u8]) -> Result<Self> {
+/*
         let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
 
         gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR_MIPMAP_LINEAR as _);
@@ -143,10 +150,13 @@ impl Texture {
             width,
             height,
         })
+*/
+        unimplemented!()
     }
 
     #[must_use]
     pub fn blank(width: usize, height: usize) -> Self {
+/*
         let id = gl::create_texture(gl::TextureTarget::TEXTURE_2D);
 
         gl::texture_parameter_i(id, gl::TextureParameter::TEXTURE_MIN_FILTER, gl::sys::LINEAR as _);
@@ -169,6 +179,8 @@ impl Texture {
             width,
             height,
         }
+*/
+        unimplemented!()
     }
 
     #[must_use]

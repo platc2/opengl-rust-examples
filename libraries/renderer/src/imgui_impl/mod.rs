@@ -126,6 +126,7 @@ fn imgui_button(button: sdl2::mouse::MouseButton) -> Option<imgui::MouseButton> 
 impl Imgui {
     #[must_use]
     pub fn init() -> Self {
+/*
         let mut context = imgui::Context::create();
         context.io_mut().backend_flags = BackendFlags::RENDERER_HAS_VTX_OFFSET;
         let _font_texture = generate_font_texture_from_atlas(context.fonts());
@@ -179,6 +180,8 @@ impl Imgui {
             vertex_buffer_object,
             element_buffer_object,
         }
+*/
+        unimplemented!()
     }
 
     pub fn update(&mut self, delta: Duration, window_dimension: WindowDimension) {
@@ -203,6 +206,7 @@ impl Imgui {
 
         //        gl::push_debug_group(gl::DebugGroupSource::DEBUG_SOURCE_THIRD_PARTY, 2, "ImGui Rendering");
 
+/*
         let blend_enabled = gl::is_enabled(gl::Capability::BLEND);
         let cull_face_enabled = gl::is_enabled(gl::Capability::CULL_FACE);
         let depth_test_enabled = gl::is_enabled(gl::Capability::DEPTH_TEST);
@@ -317,17 +321,21 @@ impl Imgui {
         toggle_capability(cull_face_enabled)(gl::Capability::CULL_FACE);
         toggle_capability(depth_test_enabled)(gl::Capability::DEPTH_TEST);
         toggle_capability(scissor_test_enabled)(gl::Capability::SCISSOR_TEST);
+*/
 
         //        gl::pop_debug_group();
     }
 }
 
 fn toggle_capability(was_enabled: bool) -> fn(gl::Capability) {
+    unimplemented!()
+/*
     if was_enabled {
         gl::enable
     } else {
         gl::disable
     }
+*/
 }
 
 fn generate_font_texture_from_atlas(font_atlas: &mut FontAtlas) -> Texture {
@@ -353,8 +361,10 @@ fn create_program() -> Program {
 
 impl Drop for Imgui {
     fn drop(&mut self) {
+/*
         gl::delete_vertex_array(&mut self.vertex_array_object);
         gl::delete_buffer(&mut self.vertex_buffer_object);
         gl::delete_buffer(&mut self.element_buffer_object);
+*/
     }
 }

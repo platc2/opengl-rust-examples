@@ -18,3 +18,13 @@ pub mod input;
 pub mod renderer_context;
 pub mod resources;
 pub mod time;
+pub mod primitives;
+mod platform;
+mod window_options;
+mod opengl_graphics_device;
+mod graphics_device;
+
+pub use opengl_graphics_device::*;
+
+pub use platform::*;
+pub use window_options::*;

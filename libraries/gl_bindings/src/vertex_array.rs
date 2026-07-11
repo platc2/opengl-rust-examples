@@ -10,6 +10,7 @@ impl VertexArrayId {
     pub const NO_VERTEX_ARRAY: VertexArrayId = VertexArrayId(0);
 }
 
+/*
 #[must_use]
 #[cfg(feature = "GL45")]
 pub fn create_vertex_arrays(count: usize) -> Vec<VertexArrayId> {
@@ -63,3 +64,4 @@ pub fn delete_vertex_array(vertex_array_id: &mut VertexArrayId) {
 pub fn bind_vertex_array(vertex_array_id: VertexArrayId) {
     unsafe { gl::BindVertexArray(vertex_array_id.raw_handle()); }
 }
+*/

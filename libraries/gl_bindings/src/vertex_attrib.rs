@@ -24,6 +24,7 @@ impl ComponentType {
     );
 }
 
+/*
 pub fn vertex_attrib_pointer(index: usize, size: ComponentSize, value_type: ComponentType, normalized: bool, stride: usize, offset: usize) {
     unsafe {
         gl::VertexAttribPointer(
@@ -35,3 +36,4 @@ pub fn vertex_attrib_pointer(index: usize, size: ComponentSize, value_type: Comp
             offset as _);
     }
 }
+*/

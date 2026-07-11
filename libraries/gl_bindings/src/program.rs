@@ -19,6 +19,7 @@ impl UniformLocation {
     }
 }
 
+/*
 #[must_use]
 pub fn create_program() -> ProgramId {
     let id = unsafe { gl::CreateProgram() };
@@ -236,3 +237,4 @@ pub fn uniform_matrix_4x3(uniform_location: UniformLocation, transpose: bool, va
     let length = values.len() / (4 * 3);
     unsafe { gl::UniformMatrix4x3fv(uniform_location.raw_handle(), length as _, transpose as _, values.as_ptr()); }
 }
+*/

@@ -144,12 +144,15 @@ impl RendererContext {
             .resizable()
             .build()?;
         let gl_context = window.gl_create_context().map_err(ContextInit)?;
+/*
         gl::load_with(|s| {
             video_subsystem
                 .gl_get_proc_address(s)
                 .cast::<std::ffi::c_void>()
         });
+*/
 
+/*
         unsafe {
             gl::sys::Enable(gl::sys::DEBUG_OUTPUT);
             gl::sys::Enable(gl::sys::DEBUG_OUTPUT_SYNCHRONOUS);
@@ -163,6 +166,7 @@ impl RendererContext {
                 gl::sys::TRUE,
             );
         }
+*/
 
         sdl.mouse().set_relative_mouse_mode(true);
 

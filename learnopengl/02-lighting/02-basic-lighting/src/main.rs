@@ -70,7 +70,7 @@ impl App for State {
     where
         Self: Sized,
     {
-        let cube = utils::primitives::cube();
+        let cube = renderer::primitives::cube();
         let vertex_data = cube.as_f32_slice();
 
         let vertex_array_object = gl::create_vertex_array();

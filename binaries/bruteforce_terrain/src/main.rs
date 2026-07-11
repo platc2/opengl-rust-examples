@@ -9,7 +9,7 @@ extern crate noise;
 use std::path::Path;
 use anyhow::{Context, Result};
 
-use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding};
+use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeBinding};
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
 
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
         .and_then(|source| Shader::from_source(&source, ShaderKind::Geometry))
         .context("Failed to initialize terrain geometry shader")?;
 
-    let vertex_bindings = [VertexBinding::new(
+    let vertex_bindings = [VertexAttributeBinding::new(
         0,
         VertexAttribute::new(renderer::VertexAttributeFormat::RGB32F, 0),
     )];

@@ -12,6 +12,7 @@ impl DebugGroupSource {
     );
 }
 
+/*
 pub fn pop_debug_group() {}
 
 pub fn push_debug_group(debug_group_source: DebugGroupSource, id: usize, message: &str) {
@@ -24,3 +25,4 @@ pub fn push_debug_group(debug_group_source: DebugGroupSource, id: usize, message
         );
     }
 }
+*/

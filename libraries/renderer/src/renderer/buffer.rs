@@ -8,7 +8,7 @@ pub enum Error {
     TooLarge,
 }
 
-type Result<T> = std::result::Result<T, Error>;
+pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 mod gl {
     pub use gl::buffer::*;
@@ -45,16 +45,26 @@ impl Buffer {
             Usage::Uniform => gl::StorageFlags::MAP_COHERENT_BIT | gl::StorageFlags::MAP_PERSISTENT_BIT,
         };
 
+/*
         let id = gl::create_buffer();
         gl::bind_buffer(target, id);
         gl::buffer_storage_empty(target, size, gl::StorageFlags::MAP_WRITE_BIT | bit_flags);
+*/
 
         Ok(Self {
-            id,
+            id: gl::BufferId::NO_BUFFER,
             target,
             size,
             usage,
         })
+    }
+
+    pub fn load_data<T: Copy>(usage: Usage, data: &[T]) -> Result<Self> {
+        let mut buffer = Self::allocate(usage, size_of_val(data))?;
+        let ptr = buffer.map::<T>();
+        ptr.copy_from_slice(data);
+        buffer.unmap();
+        Ok(buffer)
     }
 
     #[must_use]
@@ -76,22 +86,29 @@ impl Buffer {
         where
             Type: Sized,
     {
+/*
         gl::bind_buffer(self.target, self.id);
         unsafe {
             let memory_pointer = gl::sys::MapBuffer(self.target.raw_handle(), gl::sys::WRITE_ONLY).cast::<Type>();
             std::slice::from_raw_parts_mut(memory_pointer, self.size / std::mem::size_of::<Type>())
         }
+ */
+        unimplemented!()
     }
 
     pub fn unmap(&self) {
         unsafe {
+/*
             gl::sys::UnmapBuffer(self.target.raw_handle());
+*/
         }
     }
 }
 
 impl Drop for Buffer {
     fn drop(&mut self) {
+/*
         gl::delete_buffer(&mut self.id);
+*/
     }
 }

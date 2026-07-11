@@ -15,6 +15,7 @@ mod texture_id;
 mod texture_target;
 mod texture_parameter;
 
+/*
 pub fn active_texture(texture_unit: TextureUnit) {
     unsafe { gl::ActiveTexture(texture_unit.raw_handle()); }
 }
@@ -1166,3 +1167,4 @@ pub fn texture_view(texture: TextureId,
         );
     }
 }
+*/

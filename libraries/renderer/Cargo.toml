@@ -12,7 +12,7 @@ imgui = ["dep:imgui"]
 
 [dependencies]
 imgui = { workspace = true, optional = true }
-gl_bindings = { workspace = true, features = ["GL45"] }
+gl_bindings = { workspace = true, features = ["GL45", "struct"] }
 opengl-rs = { workspace = true, features = ["GL45"] }
 sdl2.workspace = true
 anyhow.workspace = true

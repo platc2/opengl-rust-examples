@@ -34,12 +34,6 @@ void main()
         sampleTex[i] = vec3(texture(tex, IN.uv + offsets[i]));
     }
 
-    float filterKernel[] = float[9](
-            1.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0,
-            2.0 / 16.0, 4.0 / 16.0, 2.0 / 16.0,
-            1.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0
-    );
-
     vec3 col = vec3(0.0);
     for(int i = 0; i < 9; ++i)
     {
@@ -49,5 +43,4 @@ void main()
     }
 
     color = vec4(col, 1.0);
-    color = vec4(texture(tex, IN.uv).rgb, 1.0);
 }

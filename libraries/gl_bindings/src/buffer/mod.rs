@@ -11,6 +11,16 @@ mod buffer_usage;
 mod buffer_id;
 mod storage_flags;
 
+trait BufferExt {
+
+    fn bind_buffer(target: BufferTarget, buffer: BufferId);
+
+    fn bind_buffer_base(target: BufferTarget, index: usize, buffer: BufferId);
+
+    fn bind_buffer_range(target: BufferTarget, index: usize, buffer: BufferId, offset: usize, size: usize);
+}
+
+/*
 pub fn bind_buffer(target: BufferTarget, buffer: BufferId) {
     unsafe { gl::BindBuffer(target.raw_handle(), buffer.raw_handle()); }
 }
@@ -160,3 +170,4 @@ pub fn delete_buffers(buffers: &mut [BufferId]) {
 pub fn delete_buffer(buffer: &mut BufferId) {
     delete_buffers(core::slice::from_mut(buffer));
 }
+*/

@@ -15,6 +15,7 @@ impl Capability {
     );
 }
 
+/*
 pub fn enable(capability: Capability) {
     unsafe { gl::Enable(capability.raw_handle()); }
 }
@@ -27,3 +28,4 @@ pub fn is_enabled(capability: Capability) -> bool {
     let enabled = unsafe { gl::IsEnabled(capability.raw_handle()) };
     enabled == gl::TRUE
 }
+*/

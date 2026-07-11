@@ -37,6 +37,8 @@ impl Debug for Error {
     }
 }
 
+/*
 pub fn get_error() -> Error {
     Error(unsafe { gl::GetError() })
 }
+*/

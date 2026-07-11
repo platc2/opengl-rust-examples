@@ -13,7 +13,7 @@ use anyhow::{Context, Result};
 
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
-use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeFormat, VertexBinding};
+use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeFormat, VertexAttributeBinding};
 
 use crate::state::State;
 
@@ -121,7 +121,7 @@ fn main() -> Result<()> {
         .and_then(|source| Shader::from_source(&source, ShaderKind::Fragment))
         .context("Failed to initialize planet fragment shader")?;
 
-    let planet_vertex_bindings = [VertexBinding::new(
+    let planet_vertex_bindings = [VertexAttributeBinding::new(
         0,
         VertexAttribute::new(VertexAttributeFormat::RG32F, 0),
     )];
@@ -141,7 +141,7 @@ fn main() -> Result<()> {
         .and_then(|source| Shader::from_source(&source, ShaderKind::Fragment))
         .context("Failed to initialize sky fragment shader")?;
 
-    let vertex_bindings = [VertexBinding::new(
+    let vertex_bindings = [VertexAttributeBinding::new(
         0,
         VertexAttribute::new(VertexAttributeFormat::RG32F, 0),
     )];

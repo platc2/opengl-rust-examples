@@ -8,7 +8,7 @@ use renderer::resources::Resources;
 use renderer::time::Time;
 use renderer::{
     gl, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute,
-    VertexAttributeFormat, VertexBinding,
+    VertexAttributeFormat, VertexAttributeBinding,
 };
 use std::time::Instant;
 
@@ -36,7 +36,7 @@ impl State {
         let triangles = cube.triangles();
 
         let cube_buffer = initialize_cube_buffer(triangles)?;
-        let vertex_bindings = &[VertexBinding::new(
+        let vertex_bindings = &[VertexAttributeBinding::new(
             0,
             VertexAttribute::new(VertexAttributeFormat::RGB32F, 0),
         )];

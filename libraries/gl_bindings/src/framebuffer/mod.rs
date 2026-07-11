@@ -16,6 +16,7 @@ mod renderbuffer_target;
 mod framebuffer_status;
 mod attachment;
 
+/*
 pub fn bind_framebuffer(target: FramebufferTarget, framebuffer: FramebufferId) {
     unsafe { gl::BindFramebuffer(target.raw_handle(), framebuffer.raw_handle()); }
 }
@@ -257,3 +258,4 @@ pub fn generate_texture_mipmap(texture: TextureId) {
 pub fn renderbuffer_storage(target: RenderbufferTarget, internal_format: ImageFormat, width: usize, height: usize) {
     unsafe { gl::RenderbufferStorage(target.raw_handle(), internal_format.raw_handle(), width as _, height as _); }
 }
+*/

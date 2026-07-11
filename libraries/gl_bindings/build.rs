@@ -4,7 +4,9 @@ use std::env;
 use std::fs::File;
 use std::path::Path;
 
-use gl_generator::{Api, Fallbacks, GlobalGenerator, Profile, Registry};
+use gl_generator::{
+    Api, Fallbacks, Profile, Registry, StructGenerator,
+};
 
 const BINDNGS_OUTPUT_FILE: &str = "bindings.rs";
 
@@ -16,6 +18,13 @@ fn main() {
     let mut file_gl = File::create(Path::new(&out_dir).join(BINDNGS_OUTPUT_FILE))
         .expect("Failed to create gl bindings file!");
     let (api, version) = get_api_and_version();
+
+    #[cfg(feature = "struct")]
+    Registry::new(api, version, Profile::Core, Fallbacks::All, [])
+        .write_bindings(StructGenerator, &mut file_gl)
+        .expect("Failed to write gl bindings!");
+
+    #[cfg(not(feature = "global"))]
     Registry::new(api, version, Profile::Core, Fallbacks::All, [])
         .write_bindings(GlobalGenerator, &mut file_gl)
         .expect("Failed to write gl bindings!");

@@ -12,7 +12,7 @@ use renderer::input::InputManager;
 use renderer::resources::Resources;
 use renderer::time::Time;
 use renderer::{
-    Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexBinding,
+    Buffer, BufferUsage, RenderPass, Shader, ShaderKind, Texture, VertexAttribute, VertexAttributeBinding,
 };
 
 use crate::{
@@ -76,15 +76,15 @@ impl App for SobelCube {
         let kernel_buffer = Buffer::allocate(BufferUsage::Uniform, std::mem::size_of::<Mat3>())?;
 
         let vertex_bindings = [
-            VertexBinding::new(
+            VertexAttributeBinding::new(
                 0,
                 VertexAttribute::new(renderer::VertexAttributeFormat::RGB32F, 0),
             ),
-            VertexBinding::new(
+            VertexAttributeBinding::new(
                 1,
                 VertexAttribute::new(renderer::VertexAttributeFormat::RG32F, 0),
             ),
-            VertexBinding::new(
+            VertexAttributeBinding::new(
                 2,
                 VertexAttribute::new(renderer::VertexAttributeFormat::RGB32F, 0),
             ),
@@ -108,11 +108,11 @@ impl App for SobelCube {
 
         let cube_vertices = initialize_cube_vertices()?;
         let cube_vertex_bindings = [
-            VertexBinding::new(
+            VertexAttributeBinding::new(
                 0,
                 VertexAttribute::new(renderer::VertexAttributeFormat::RG32F, 0),
             ),
-            VertexBinding::new(
+            VertexAttributeBinding::new(
                 1,
                 VertexAttribute::new(renderer::VertexAttributeFormat::RG32F, 0),
             ),
@@ -201,7 +201,7 @@ impl App for SobelCube {
             rotate: false,
             matrix_index: 0,
             matrices: Vec::from(matrices),
-            light_color: glm::vec3(1., 1., 0.),
+            light_color: glm::vec3(1., 1., 1.),
             angle: 0.,
             projection: glm::perspective(1., PI / 3., 0.001, 100.),
             view: glm::look_at(
@@ -227,7 +227,7 @@ impl App for SobelCube {
 
 impl Application for SobelCube {
     fn tick(&mut self, time: &Time<Instant>, _: &dyn InputManager) {
-        self.angle += 0.005f32;
+        self.angle += (0.0005 * time.duration().as_millis() as f32);
         let view_projection = self.projection * self.view;
         let model = nalgebra_glm::rotation(self.angle, &nalgebra_glm::vec3(1.5f32, 1f32, 0.5f32));
         let matrix_ptr = self.matrix_buffer.map::<glm::Mat4>();

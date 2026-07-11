@@ -1,10 +1,9 @@
 use thiserror::Error;
 
-use gl::sys::types::{GLenum, GLint, GLintptr, GLsizeiptr, GLuint};
-use crate::renderer::render_pass::Error::IncompleteFramebuffer;
-use crate::renderer::vertex_attribute::Format;
 use crate::renderer::labelled::Labelled;
-use crate::renderer::{Buffer, Program, Shader, Texture, VertexAttribute};
+use crate::renderer::render_pass::Error::IncompleteFramebuffer;
+use crate::renderer::{Buffer, Program, Shader, Texture};
+use gl::sys::types::{GLenum, GLintptr, GLsizeiptr, GLuint};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -21,22 +20,17 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct RenderPass {
-    vertex_array_object: GLuint,
     program: Program,
     uniform_buffers: Vec<(GLuint, GLsizeiptr)>,
     textures: Vec<GLuint>,
     frame_buffer: GLuint,
 }
 
-pub struct VertexBinding {
-    binding_index: GLuint,
-    vertex_attribute: VertexAttribute,
-}
-
 impl Labelled for RenderPass {
     fn set_label(&mut self, label: &str) {
-        let _label = format!("{}::framebuffer", label);
+        let _label = format!("{label}::framebuffer");
         if self.frame_buffer > 0 {
+/*
             unsafe {
                 gl::sys::ObjectLabel(
                     gl::sys::FRAMEBUFFER,
@@ -45,35 +39,16 @@ impl Labelled for RenderPass {
                     label.as_ptr().cast(),
                 );
             }
-        }
-
-        let _label = format!("{}::vao", label);
-        unsafe {
-            gl::sys::ObjectLabel(
-                gl::sys::VERTEX_ARRAY,
-                self.vertex_array_object,
-                _label.len() as _,
-                _label.as_ptr().cast(),
-            )
+*/
         }
     }
 
-    fn identifier(&self) -> gl::sys::types::GLenum {
+    fn identifier(&self) -> GLenum {
         unimplemented!()
     }
 
     fn name(&self) -> GLuint {
         unimplemented!()
-    }
-}
-
-impl VertexBinding {
-    #[must_use]
-    pub fn new(binding_index: u8, vertex_attribute: VertexAttribute) -> Self {
-        Self {
-            binding_index: GLuint::from(binding_index),
-            vertex_attribute,
-        }
     }
 }
 
@@ -89,40 +64,10 @@ impl RenderPass {
     pub fn new(
         vertex_shader: &Shader,
         fragment_shader: &Shader,
-        vertex_bindings: &[VertexBinding],
         uniform_buffers: &[&Buffer],
         textures: &[&Texture],
         attachments: &[&Texture],
     ) -> Result<Self> {
-        let mut vertex_array_object: GLuint = 0;
-        unsafe {
-            gl::sys::CreateVertexArrays(1, &mut vertex_array_object);
-        }
-
-        for (
-            index,
-            VertexBinding {
-                binding_index,
-                vertex_attribute,
-            },
-        ) in vertex_bindings.iter().enumerate()
-        {
-            let index = GLuint::try_from(index).map_err(|_| Error::TooManyVertexBindings)?;
-            let (format_size, format_type) = convert_format(vertex_attribute.format());
-            unsafe {
-                gl::sys::EnableVertexArrayAttrib(vertex_array_object, index);
-                gl::sys::VertexArrayAttribFormat(
-                    vertex_array_object,
-                    index,
-                    format_size,
-                    format_type,
-                    gl::sys::FALSE,
-                    GLuint::from(vertex_attribute.offset()),
-                );
-                gl::sys::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
-            }
-        }
-
         let program = Program::from_shaders(&[vertex_shader, fragment_shader])?;
 
         // Buffer object already checks for valid size
@@ -136,6 +81,7 @@ impl RenderPass {
 
         let mut frame_buffer: GLuint = 0;
         if !attachments.is_empty() {
+/*
             unsafe {
                 gl::sys::CreateFramebuffers(1, &mut frame_buffer);
                 gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, frame_buffer);
@@ -176,10 +122,10 @@ impl RenderPass {
             unsafe {
                 gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0);
             }
+*/
         }
 
         Ok(Self {
-            vertex_array_object,
             program,
             uniform_buffers,
             textures,
@@ -191,40 +137,10 @@ impl RenderPass {
         vertex_shader: &Shader,
         fragment_shader: &Shader,
         geometry_shader: &Shader,
-        vertex_bindings: &[VertexBinding],
         uniform_buffers: &[&Buffer],
         textures: &[&Texture],
         attachments: &[&Texture],
     ) -> Result<Self> {
-        let mut vertex_array_object: GLuint = 0;
-        unsafe {
-            gl::sys::CreateVertexArrays(1, &mut vertex_array_object);
-        }
-
-        for (
-            index,
-            VertexBinding {
-                binding_index,
-                vertex_attribute,
-            },
-        ) in vertex_bindings.iter().enumerate()
-        {
-            let index = GLuint::try_from(index).map_err(|_| Error::TooManyVertexBindings)?;
-            let (format_size, format_type) = convert_format(vertex_attribute.format());
-            unsafe {
-                gl::sys::EnableVertexArrayAttrib(vertex_array_object, index);
-                gl::sys::VertexArrayAttribFormat(
-                    vertex_array_object,
-                    index,
-                    format_size,
-                    format_type,
-                    gl::sys::FALSE,
-                    GLuint::from(vertex_attribute.offset()),
-                );
-                gl::sys::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
-            }
-        }
-
         let program = Program::from_shaders(&[vertex_shader, fragment_shader, geometry_shader])?;
 
         // Buffer object already checks for valid size
@@ -238,6 +154,7 @@ impl RenderPass {
 
         let mut frame_buffer: GLuint = 0;
         if !attachments.is_empty() {
+/*
             unsafe {
                 gl::sys::CreateFramebuffers(1, &mut frame_buffer);
                 gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, frame_buffer);
@@ -278,10 +195,10 @@ impl RenderPass {
             unsafe {
                 gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0);
             }
+*/
         }
 
         Ok(Self {
-            vertex_array_object,
             program,
             uniform_buffers,
             textures,
@@ -302,40 +219,10 @@ impl RenderPass {
         fragment_shader: &Shader,
         tessellation_control_shader: &Shader,
         tessellation_evaluation_shader: &Shader,
-        vertex_bindings: &[VertexBinding],
         uniform_buffers: &[&Buffer],
         textures: &[&Texture],
         attachments: &[&Texture],
     ) -> Result<Self> {
-        let mut vertex_array_object: GLuint = 0;
-        unsafe {
-            gl::sys::CreateVertexArrays(1, &mut vertex_array_object);
-        }
-
-        for (
-            index,
-            VertexBinding {
-                binding_index,
-                vertex_attribute,
-            },
-        ) in vertex_bindings.iter().enumerate()
-        {
-            let index = GLuint::try_from(index).map_err(|_| Error::TooManyVertexBindings)?;
-            let (format_size, format_type) = convert_format(vertex_attribute.format());
-            unsafe {
-                gl::sys::EnableVertexArrayAttrib(vertex_array_object, index);
-                gl::sys::VertexArrayAttribFormat(
-                    vertex_array_object,
-                    index,
-                    format_size,
-                    format_type,
-                    gl::sys::FALSE,
-                    GLuint::from(vertex_attribute.offset()),
-                );
-                gl::sys::VertexArrayAttribBinding(vertex_array_object, index, *binding_index);
-            }
-        }
-
         let program = Program::from_shaders(&[
             vertex_shader,
             fragment_shader,
@@ -357,6 +244,7 @@ impl RenderPass {
 
         let mut frame_buffer: GLuint = 0;
         if !attachments.is_empty() {
+/*
             unsafe {
                 gl::sys::CreateFramebuffers(1, &mut frame_buffer);
                 gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, frame_buffer);
@@ -396,10 +284,10 @@ impl RenderPass {
             unsafe {
                 gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, 0);
             }
+*/
         }
 
         Ok(Self {
-            vertex_array_object,
             program,
             uniform_buffers,
             textures,
@@ -413,12 +301,11 @@ impl RenderPass {
         } else {
             0
         };
+/*
         unsafe { gl::sys::BindFramebuffer(gl::sys::DRAW_FRAMEBUFFER, buffer) };
+*/
 
         self.program.set_used();
-        unsafe {
-            gl::sys::BindVertexArray(self.vertex_array_object);
-        }
 
         for (index, (handle, size)) in
             self.uniform_buffers
@@ -431,6 +318,7 @@ impl RenderPass {
                     )
                 })
         {
+/*
             unsafe {
                 gl::sys::BindBufferRange(
                     gl::sys::UNIFORM_BUFFER,
@@ -440,6 +328,7 @@ impl RenderPass {
                     *size,
                 );
             }
+*/
         }
 
         for (texture_slot, texture_handle) in self
@@ -448,10 +337,12 @@ impl RenderPass {
             .enumerate()
             .map(|(index, handle)| (index_to_texture_slot(index), handle))
         {
+/*
             unsafe {
                 gl::sys::ActiveTexture(texture_slot);
                 gl::sys::BindTexture(gl::sys::TEXTURE_2D, *texture_handle);
             }
+*/
         }
 
         if self.frame_buffer > 0 {
@@ -467,17 +358,4 @@ fn index_to_texture_slot(index: usize) -> GLenum {
 fn index_to_color_attachment_slot(index: usize) -> GLenum {
     GLenum::try_from(gl::sys::COLOR_ATTACHMENT0 as usize + index)
         .expect("Attachment index too large")
-}
-
-const fn convert_format(format: Format) -> (GLint, GLenum) {
-    match format {
-        Format::R32F => (1, gl::sys::FLOAT),
-        Format::RG32F => (2, gl::sys::FLOAT),
-        Format::RGB32F => (3, gl::sys::FLOAT),
-        Format::RGBA32F => (4, gl::sys::FLOAT),
-        Format::R8 => (1, gl::sys::BYTE),
-        Format::RG8 => (2, gl::sys::BYTE),
-        Format::RGB8 => (3, gl::sys::BYTE),
-        Format::RGBA8 => (4, gl::sys::BYTE),
-    }
 }

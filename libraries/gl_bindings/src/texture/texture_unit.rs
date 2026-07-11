@@ -5,6 +5,7 @@ use crate::gl;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, RawHandle)]
 pub struct TextureUnit(pub(crate) gl::GLenum);
 
+/*
 impl TextureUnit {
     pub fn fixed(value: usize) -> Self {
         let mut max_combine_texture_image_units = 0;
@@ -17,3 +18,4 @@ impl TextureUnit {
         }
     }
 }
+*/

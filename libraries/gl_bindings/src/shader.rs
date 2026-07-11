@@ -19,6 +19,7 @@ impl ShaderKind {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, RawHandle)]
 pub struct ShaderId(gl::GLuint);
 
+/*
 #[must_use]
 pub fn create_shader(shader_kind: ShaderKind) -> ShaderId {
     let id = unsafe { gl::CreateShader(shader_kind.raw_handle()) };
@@ -75,3 +76,4 @@ pub fn shader_info_log(shader_id: ShaderId) -> Option<String> {
         Some(info_log)
     }
 }
+*/

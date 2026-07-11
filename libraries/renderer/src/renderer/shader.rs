@@ -88,6 +88,7 @@ impl Shader {
 }
 
 fn shader_from_source(source: &str, kind: gl::ShaderKind) -> Result<gl::ShaderId> {
+/*
     let id = gl::create_shader(kind);
 
     gl::shader_source(id, source);
@@ -103,8 +104,12 @@ fn shader_from_source(source: &str, kind: gl::ShaderKind) -> Result<gl::ShaderId
         #[allow(clippy::or_fun_call)]
         Err(ShaderCompilation(info_log.unwrap_or(String::from("Unknown error"))))
     }
+*/
+    unimplemented!()
 }
 
+/*
 impl Drop for Shader {
     fn drop(&mut self) { gl::delete_shader(&mut self.id) }
 }
+*/

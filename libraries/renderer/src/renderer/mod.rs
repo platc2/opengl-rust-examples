@@ -1,15 +1,17 @@
 pub use self::buffer::{Buffer, Usage as BufferUsage};
+pub use self::labelled::Labelled;
 pub use self::program::Program;
-pub use self::render_pass::{RenderPass, VertexBinding};
+pub use self::render_pass::RenderPass;
 pub use self::shader::{Kind as ShaderKind, Shader};
 pub use self::texture::Texture;
-pub use self::vertex_attribute::{Format as VertexAttributeFormat, VertexAttribute};
-pub use self::labelled::Labelled;
+pub use mesh::*;
+pub use sdl::*;
 
-mod labelled;
 mod buffer;
+mod labelled;
+mod mesh;
 mod program;
 mod render_pass;
 mod shader;
 mod texture;
-mod vertex_attribute;
+mod sdl;

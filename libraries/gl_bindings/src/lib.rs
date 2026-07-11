@@ -1,27 +1,30 @@
 extern crate gl_bindings_raw_handle_derive;
 
+#[cfg(feature = "struct")]
+pub use sys::Gl;
+#[cfg(not(feature = "struct"))]
 pub use sys::load_with;
 
+pub mod access_type;
 pub mod buffer;
-pub mod shader;
-pub mod program;
 pub mod capabilities;
-pub mod rendering;
-pub mod state;
-pub mod vertex_array;
-pub mod vertex_attrib;
 pub mod debug;
-pub mod texture;
+pub mod error;
 pub mod framebuffer;
 pub mod image_format;
-pub mod access_type;
 pub mod pixel_format;
 pub mod pixel_type;
-pub mod error;
+pub mod program;
+pub mod rendering;
+pub mod shader;
+pub mod state;
+pub mod texture;
+pub mod vertex_array;
+pub mod vertex_attrib;
 
 mod gl {
-    pub use crate::sys::*;
     pub use crate::sys::types::*;
+    pub use crate::sys::*;
 }
 
 macro_rules! define_gl_constants {

@@ -10,7 +10,7 @@ use nalgebra_glm as glm;
 
 use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension};
 use renderer::resources::Resources;
-use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute, VertexBinding};
+use renderer::{application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute, VertexAttributeBinding};
 
 use crate::matrix_uniform::MatrixUniform;
 use crate::state::State;
@@ -50,7 +50,7 @@ pub fn main() -> Result<()> {
         .and_then(|source| Shader::from_source(&source, ShaderKind::Fragment))
         .context("Failed to initialize terrain fragment shader")?;
 
-    let vertex_bindings = [VertexBinding::new(
+    let vertex_bindings = [VertexAttributeBinding::new(
         0,
         VertexAttribute::new(renderer::VertexAttributeFormat::RGB32F, 0),
     )];

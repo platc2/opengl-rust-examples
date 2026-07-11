@@ -10,7 +10,7 @@ edition = "2021"
 walkdir.workspace = true
 
 [dependencies]
-gl_bindings.workspace = true
+gl_bindings = { workspace = true, features = ["GL45", "struct"] }
 renderer = { workspace = true, features = ["imgui"]}
 anyhow.workspace = true
 imgui.workspace = true

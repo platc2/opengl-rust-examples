@@ -13,7 +13,7 @@ use renderer::renderer_context::{OpenGLVersion, RendererContext, WindowDimension
 use renderer::resources::Resources;
 use renderer::{
     application, Buffer, BufferUsage, RenderPass, Shader, ShaderKind, VertexAttribute,
-    VertexBinding,
+    VertexAttributeBinding,
 };
 
 use crate::state::State;
@@ -63,11 +63,11 @@ fn main() -> Result<()> {
     .context("Failed to initialize tessellation evaluation shader")?;
 
     let vertex_bindings = [
-        VertexBinding::new(
+        VertexAttributeBinding::new(
             0,
             VertexAttribute::new(renderer::VertexAttributeFormat::RG32F, 0),
         ),
-        VertexBinding::new(
+        VertexAttributeBinding::new(
             1,
             VertexAttribute::new(renderer::VertexAttributeFormat::RGB32F, 0),
         ),

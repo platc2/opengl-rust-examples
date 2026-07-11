@@ -1,5 +1,3 @@
-pub mod primitives;
-
 extern crate anyhow;
 extern crate gl_bindings;
 extern crate stb_image;

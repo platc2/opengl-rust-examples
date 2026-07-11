@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["GL45"]
+default = ["GL45", "global"]
 GL33 = []
 GL40 = ["GL33"]
 GL41 = ["GL40"]
@@ -18,6 +18,8 @@ GL45 = ["GL44"]
 GLES20 = []
 GLES30 = ["GLES20"]
 GLES31 = ["GLES30"]
+struct = []
+global = []
 
 [build-dependencies]
 gl_generator = "0.14.0"
